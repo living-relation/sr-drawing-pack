@@ -1,40 +1,42 @@
 # Development
 
-**SR Drawing PDF** is a Fusion script written in Python. This page covers how to work on the repository. Project layout, build steps, and tests are to be completed when the code lands.
-
-## Repository status
-
-The first commit is documentation only. Application code will arrive in a later pull request. Prefer adding code on a branch and opening a PR, rather than committing straight to `main`, once this repository is in use.
+**SR Drawing PDF** is a Fusion add-in written in Python (not an add-in).
 
 ## Clone
-
-Clone the public repository and work in your local copy:
 
 ```
 git clone https://github.com/living-relation/sr-drawing-pdf.git
 ```
 
-Load that local copy into Fusion as described in [Install](install.md).
+Load the `SRDrawingPDF` folder into Fusion as described in [Install](install.md).
 
 ## Layout
 
-Expected folders and the script entry point are to be completed when the code lands.
+- `SRDrawingPDF/` — the Fusion add-in (junction this folder into Scripts). Entry point: `SRDrawingPDF.py` and `SRDrawingPDF.manifest`.
+- `tests/` — checks that do not need Fusion (manifest, renamed script, no machine paths).
+- `dev/fusion_smoke.py` — live test that runs inside Fusion.
+- `tools/check.py` — secret/path scan plus pytest. CI runs the same command.
 
 ## Coding notes
 
-- This repository is public. Do not commit secrets, tokens, passwords, personal email addresses, or machine-specific paths.
+- This repository is public. Do not commit secrets, tokens, passwords, personal email addresses, machine-specific paths, or vendor CAD files.
 - Keep Spark Robotic / SR- naming in user-visible text and repository docs.
-- Match the style of the code when it lands. Language, API, and lint details are to be completed when the code lands.
+- Work on a branch and open a pull request against `main`. Never commit to `main` directly.
+- Run `python tools/check.py` before every push. See [AGENTS.md](../AGENTS.md).
 
 ## Tests
 
-How to run tests, including any checks that must run inside Fusion, is to be completed when the code lands.
+```
+python tools/check.py
+```
+
+`dev/fusion_smoke.py` is a live test. Take the machine's Fusion lock first. It opens a new scratch design, loads the add-in module, and checks that `run`, `setup_drawing` and `add_dimensions` are present, then closes the design without saving. A full PDF export still needs the New Drawing confirmation dialog, so the smoke test does not click through that dialog. Your open documents are not touched.
+
+`run()` also accepts an optional `pdf_path` so a test can skip the Save dialog. The normal Scripts Run still shows the Save dialog.
 
 ## Contributing
 
-1. Open an issue or draft a short plan for the change if the work is larger than a small fix.
-2. Create a branch from `main`.
-3. Add or update documentation in `docs/` when behavior changes.
-4. Open a pull request against `main`.
-
-Review and CI expectations are to be completed when the code lands.
+1. Create a branch from `main`.
+2. Add or update documentation in `docs/` when behavior changes.
+3. Run `python tools/check.py`.
+4. Open a pull request against `main`. CI must stay green.

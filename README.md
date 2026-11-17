@@ -1,29 +1,34 @@
 # SR Drawing PDF
 
-A Spark Robotic Fusion script that makes a 4-view drawing PDF of the active design.
+A Spark Robotic Fusion add-in that makes a four-view technical drawing of the active design and
+exports it as a PDF.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## Features
 
-- Create a 4-view drawing of the active Fusion design.
-- Save that drawing as a PDF.
-
-The four views, sheet layout, title-block content, and PDF options are to be completed when the code lands.
+- **Toolbar button** "SR Drawing PDF" on several Design-workspace panels: **SR Tools**, Add-Ins, Make, and Insert. The panel list is configurable in `%APPDATA%/SRDrawingPDF/panels.json`.
+- Fusion then opens the **New Drawing** dialog. Click OK (accept the defaults).
+- The add-in adds Front, Top, Right and Isometric views on an A3 landscape sheet, adds overall dimensions when it can, exports the PDF, and closes the drawing without saving it. The design stays open.
+- Dimensions are best-effort; if Fusion will not attach them, the PDF is still exported.
 
 ## Requirements
 
 - Autodesk Fusion
 
-Other dependencies, if any, are to be completed when the code lands.
-
 ## Install
 
-Add this repository from Fusion's **Scripts and Add-Ins** dialog. Use the **Scripts** tab and add the script from a folder. See [docs/install.md](docs/install.md) for the full steps.
+1. Clone this repo and keep the folder on disk.
+2. In Fusion: **Utilities > Add-ins > Scripts and Add-ins > Add-ins tab > + (green plus)**, and pick the `SRDrawingPDF` folder inside the clone. Tick **Run on Startup** and click **Run**.
+
+   Or copy or link the `SRDrawingPDF` folder into `%APPDATA%\Autodesk\Autodesk Fusion 360\API\AddIns\` and restart Fusion.
+3. The button shows up on the **SR Tools** tab and in the Add-Ins, Make, and Insert panels.
+
+See [docs/install.md](docs/install.md) for the full steps, including uninstall.
 
 ## Usage
 
-Once the script is added in Fusion, run it from the Scripts and Add-Ins dialog to make a 4-view drawing PDF of the active design. Command names, options, and outputs are to be completed when the code lands. See [docs/usage.md](docs/usage.md).
+Open a design, run **SR Drawing PDF**, pick the PDF path, then click OK on the New Drawing dialog. See [docs/usage.md](docs/usage.md).
 
 ## Documentation
 
@@ -33,9 +38,17 @@ Once the script is added in Fusion, run it from the Scripts and Add-Ins dialog t
 - [Development](docs/development.md)
 - [Documentation index](docs/README.md)
 
+## Development
+
+```
+python tools/check.py
+```
+
+CI runs the same check. `dev/fusion_smoke.py` is a live test that runs inside Fusion. A full PDF export still needs the New Drawing confirmation click. See [docs/development.md](docs/development.md).
+
 ## Contributing
 
-This repository is just getting started. The script code will be added in a later pull request. When you change docs or code, please open a PR against `main`. See [docs/development.md](docs/development.md).
+Work on a branch and open a pull request against `main`. Update `docs/` when behavior changes. See [docs/development.md](docs/development.md) and [AGENTS.md](AGENTS.md).
 
 ## License
 

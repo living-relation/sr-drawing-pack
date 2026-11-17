@@ -1,25 +1,25 @@
 # Usage
 
-Once the script is added in Fusion, run it from the Scripts and Add-Ins dialog to make a 4-view drawing PDF of the active design.
-
-The script code is not in this repository yet, so the steps below stay at a high level.
-
 ## Before you start
 
-1. Install the script as described in [Install](install.md).
-2. Open the Fusion design you want to work with.
+1. Install the add-in as described in [Install](install.md).
+2. Open the Fusion design you want to draw.
 
 ## Run
 
-- Which four views are included, and how they are arranged on the sheet, are to be completed when the code lands.
-- Title-block content, sheet size, and other drawing standards are to be completed when the code lands.
-- PDF file naming and the save location are to be completed when the code lands.
-- What happens if no design is open, or if the design cannot be drawn, is to be completed when the code lands.
+1. Click **SR Drawing PDF** on the **SR Tools** tab, or in the Design workspace Add-Ins, Make, or Insert panel.
+2. In the command dialog, confirm or browse to the PDF file path. The default name is the design name plus `_drawing`.
+3. Click OK. Fusion opens the **New Drawing** dialog. Click OK and accept the defaults. The add-in is listening for that drawing to open.
+4. The add-in sets the sheet to A3 landscape, adds Front, Top, Right and Isometric views, tries to add overall dimensions, exports the PDF, and closes the drawing without saving it.
+
+If no design is open, the add-in asks you to open one first. If it cannot trigger the New Drawing command, it tells you to create a drawing yourself with **File > New Drawing > From Design**; it will still finish the views and PDF when that drawing opens.
 
 ## Results
 
-What the tool writes, where it writes it, and how to confirm a successful run are to be completed when the code lands.
+A message box reports the PDF path when the export finishes. The design document stays open. The temporary drawing is discarded.
 
 ## Limits and known issues
 
-Limits, warnings, and known issues are to be completed when the code lands.
+- You must click OK on the New Drawing dialog. That confirmation cannot be skipped.
+- Dimensions are best-effort. If Fusion will not attach them, the PDF is still exported.
+- View layout is fixed for an A3 landscape sheet. Very large or very small models may need a manual scale change; the add-in uses automatic scale for the base view.
