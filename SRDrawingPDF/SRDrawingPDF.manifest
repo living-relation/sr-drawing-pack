@@ -1,11 +1,13 @@
 {
   "autodeskProduct": "Fusion",
-  "type": "script",
+  "type": "addin",
   "id": "9a77519d-c7bb-4f2e-aada-0bcc9b25f8a0",
   "author": "Spark Robotic",
-  "description": {"": "SR Drawing PDF: create a front/top/right/isometric drawing of the active design and export it as a PDF."},
+  "description": {
+    "": "SR Drawing PDF: create a front/top/right/isometric drawing of the active design and export it as a PDF."
+  },
   "version": "1.0.0",
+  "runOnStartup": true,
   "supportedOS": "windows|mac",
-  "editEnabled": true,
-  "iconFilename": "ScriptIcon.svg"
+  "editEnabled": true
 }

@@ -1,15 +1,15 @@
 # SR Drawing PDF
 
-A Spark Robotic Fusion script that makes a four-view technical drawing of the active design and
+A Spark Robotic Fusion add-in that makes a four-view technical drawing of the active design and
 exports it as a PDF.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## Features
 
-- Run the script to open a Save dialog and pick where the PDF should go.
+- **Toolbar button** "SR Drawing PDF" on several Design-workspace panels: **SR Tools**, Add-Ins, Make, and Insert. The panel list is configurable in `%APPDATA%/SRDrawingPDF/panels.json`.
 - Fusion then opens the **New Drawing** dialog. Click OK (accept the defaults).
-- The script adds Front, Top, Right and Isometric views on an A3 landscape sheet, adds overall dimensions when it can, exports the PDF, and closes the drawing without saving it. The design stays open.
+- The add-in adds Front, Top, Right and Isometric views on an A3 landscape sheet, adds overall dimensions when it can, exports the PDF, and closes the drawing without saving it. The design stays open.
 - Dimensions are best-effort; if Fusion will not attach them, the PDF is still exported.
 
 ## Requirements
@@ -19,10 +19,10 @@ exports it as a PDF.
 ## Install
 
 1. Clone this repo and keep the folder on disk.
-2. In Fusion: **Utilities > Add-ins > Scripts and Add-ins > Scripts tab > + (green plus)** next to My Scripts, and pick the `SRDrawingPDF` folder inside the clone.
+2. In Fusion: **Utilities > Add-ins > Scripts and Add-ins > Add-ins tab > + (green plus)**, and pick the `SRDrawingPDF` folder inside the clone. Tick **Run on Startup** and click **Run**.
 
-   Or copy or link the `SRDrawingPDF` folder into `%APPDATA%\Autodesk\Autodesk Fusion 360\API\Scripts\` and restart Fusion.
-3. The script is listed as **SR Drawing PDF**. Run it from Scripts and Add-ins (or press S and search for it).
+   Or copy or link the `SRDrawingPDF` folder into `%APPDATA%\Autodesk\Autodesk Fusion 360\API\AddIns\` and restart Fusion.
+3. The button shows up on the **SR Tools** tab and in the Add-Ins, Make, and Insert panels.
 
 See [docs/install.md](docs/install.md) for the full steps, including uninstall.
 
