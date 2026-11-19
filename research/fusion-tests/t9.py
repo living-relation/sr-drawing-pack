@@ -1,6 +1,10 @@
 import adsk.core, adsk.drawing, os
+import os as _os
+ROOT = _os.environ.get("SRDP_ROOT")  # path to your sr-drawing-pack clone; differs per PC
+if not ROOT:
+    raise RuntimeError("Set SRDP_ROOT to your sr-drawing-pack clone")
 app = adsk.core.Application.get(); ui = app.userInterface
-T = r"C:\projects\active\sr-drawing-pack\research\_local\logs"
+T = _os.path.join(ROOT, r"research\_local\logs")
 scr = os.path.join(T, "gf_test2.scr")
 with open(scr, "w", encoding="ascii") as f:
     f.write('(entmake (list (cons 0 "TEXT") (cons 1 "GF CMD TEST") (cons 10 (list 1.0 1.5 0.0)) (cons 40 0.15) (cons 50 0.0)))\n')

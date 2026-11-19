@@ -1,6 +1,10 @@
 import adsk.core, logging, types, time
+import os as _os
+ROOT = _os.environ.get("SRDP_ROOT")  # path to your sr-drawing-pack clone; differs per PC
+if not ROOT:
+    raise RuntimeError("Set SRDP_ROOT to your sr-drawing-pack clone")
 app = adsk.core.Application.get()
-src = open(r"C:\projects\active\sr-drawing-pack\research\_local\refs\nvsdef_fusion360-mcp\addon\server\render_drawing.py", encoding="utf-8").read()
+src = open(_os.path.join(ROOT, r"research\_local\refs\nvsdef_fusion360-mcp\addon\server\render_drawing.py"), encoding="utf-8").read()
 src = src.replace("from . import get_logger", "get_logger = lambda n: __import__('logging').getLogger(n)")
 mod = types.ModuleType("nv_rd"); exec(compile(src, "render_drawing.py", "exec"), mod.__dict__)
 class H(mod.RenderDrawingMixin):
