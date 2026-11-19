@@ -4,18 +4,7 @@ Raw capture, not yet a spec. `state-init` / the SPEC step turns this into the re
 
 ## Decisions made
 
-| ID | Decision |
-|---|---|
-| D1 | Architecture: thin Fusion add-in + handbuilt-cad drawing engine outside Fusion. (Under review, see PLAN open question Q1.) |
-| D2 | BOM source: Fusion component tree and a spec file, spec overrides Fusion. |
-| D3 | Thumbnails: shaded isometric view. Click a thumbnail in a list or BOM to expand it. |
-| D4 | Export: PDF, DXF, DWG as check boxes, any combination. |
-| D5 | Name: SR Drawing Pack. |
-| D6 | Dimensions: assemblies get overall sizes as reference dimensions (in parentheses). Parts always get full manufacturing dimensions. The user can add any dimension type by hand on any drawing. |
-| D7 | Output style: the existing handbuilt-cad drawings in the models folder (for example ST185-FB-100P, ST185-FB-103). |
-| D8 | Must work from .f3d files. |
-| D9 | handbuilt-cad is read-only. Copy and modify into this repo instead. |
-| D10 | Target Fusion account: the Spark Robotic team account on the work PC. Access granted later. |
+Moved to [DECISIONS.md](DECISIONS.md) (D1 to D10 are ADR-001 to ADR-010).
 
 ## Review rule
 
@@ -59,6 +48,7 @@ Raw capture, not yet a spec. `state-init` / the SPEC step turns this into the re
 ## Revision table
 
 - Fully functioning revision table. Model and drawing revision must match.
+- Rev format and rules: ADR-011 in [DECISIONS.md](DECISIONS.md).
 
 ## Project rules that apply (Custom CAD Designs)
 

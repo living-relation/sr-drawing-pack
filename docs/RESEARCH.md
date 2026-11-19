@@ -20,8 +20,12 @@ untested. Test scripts: `research/fusion-tests/` (paths were rewritten after the
 
 - Fusion's drawing API is a preview. One option had already been renamed between the tool's release
   and this build.
-- On the test sheet the API exposed only `drawingSymbols` and `customTables` collections. No way was
-  found to build a revision table or a styled BOM through it.
+- On the test sheet (Fusion 2706.1.17) the API exposed only `drawingSymbols` and `customTables`
+  collections, and no way was found to build a revision table or a styled BOM through it.
+  **Out of date:** Autodesk's API reference now lists `Sheet.addRevisionTable`, `RevisionTable.addRevision`
+  and a `TitleBlocks` collection (preview, "Introduced in version October 2026"), and `Sheets.add`
+  (September 2026). `Views.add` creates base views only. Not yet re-tested here; the build tested may
+  predate them.
 - Automatic dimensions missed pocket depth and hole depth.
 - DXF export stores geometry in inches with dimension scale 25.4 on a mm drawing (`$INSUNITS` 1,
   `DIMLFAC` 25.4). Dimensions read correctly; raw measurements in another program would be inches.

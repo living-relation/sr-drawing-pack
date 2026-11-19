@@ -1,9 +1,13 @@
 import sys, zipfile, os
+import os as _os
+ROOT = _os.environ.get("SRDP_ROOT")  # path to your sr-drawing-pack clone; differs per PC
+if not ROOT:
+    raise RuntimeError("Set SRDP_ROOT to your sr-drawing-pack clone")
 from pathlib import Path
-sys.path.insert(0, r"C:\projects\active\sr-drawing-pack\research\_local\refs\ants2")
+sys.path.insert(0, _os.path.join(ROOT, r"research\_local\refs\ants2"))
 import core.app_config as cfg
 cfg.FUSION_PATH = Path(os.environ["LOCALAPPDATA"]) / "Autodesk" / "Autodesk Fusion 360"
-cfg.OUTPUT_DIR = Path(r"C:\projects\active\sr-drawing-pack\research\_local\out")
+cfg.OUTPUT_DIR = Path(_os.path.join(ROOT, r"research\_local\out"))
 import core.fusion_scan as fs, core.drawing_extract as de
 fs.FUSION_PATH = cfg.FUSION_PATH; de.OUTPUT_DIR = cfg.OUTPUT_DIR
 found = fs.find_drawings()

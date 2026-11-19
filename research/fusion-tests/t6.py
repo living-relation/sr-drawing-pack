@@ -1,6 +1,10 @@
 import adsk.core, adsk.drawing, ast, os, time
+import os as _os
+ROOT = _os.environ.get("SRDP_ROOT")  # path to your sr-drawing-pack clone; differs per PC
+if not ROOT:
+    raise RuntimeError("Set SRDP_ROOT to your sr-drawing-pack clone")
 app = adsk.core.Application.get()
-T = r"C:\projects\active\sr-drawing-pack\research\_local\out"
+T = _os.path.join(ROOT, r"research\_local\out")
 os.makedirs(T, exist_ok=True)
 dd = adsk.drawing.DrawingDocument.cast(app.activeDocument)
 dr = dd.drawing
@@ -12,7 +16,7 @@ if sh:
         info = {a: getattr(s, a).count for a in ("drawingViews", "dimensions", "drawingSymbols", "customTables", "tables") if hasattr(s, a) and hasattr(getattr(s, a), "count")}
         print(" sheet", i, s.name if hasattr(s, "name") else "", info)
 # fusion-export: pull export_drawing() verbatim from its source
-src = open(r"C:\projects\active\sr-drawing-pack\research\_local\refs\nofuturekid_fusion-export\FusionExport\FusionExport.py", encoding="utf-8").read()
+src = open(_os.path.join(ROOT, r"research\_local\refs\nofuturekid_fusion-export\FusionExport\FusionExport.py"), encoding="utf-8").read()
 fn = [n for n in ast.parse(src).body if isinstance(n, ast.FunctionDef) and n.name == "export_drawing"][0]
 g = {"os": os, "adsk": adsk}; exec(compile(ast.Module([fn], []), "fe", "exec"), g)
 t = time.time()

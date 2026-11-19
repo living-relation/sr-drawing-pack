@@ -1,6 +1,10 @@
 import adsk.core, adsk.drawing, os, time
+import os as _os
+ROOT = _os.environ.get("SRDP_ROOT")  # path to your sr-drawing-pack clone; differs per PC
+if not ROOT:
+    raise RuntimeError("Set SRDP_ROOT to your sr-drawing-pack clone")
 app = adsk.core.Application.get()
-T = r"C:\projects\active\sr-drawing-pack\research\_local\logs"
+T = _os.path.join(ROOT, r"research\_local\logs")
 print("active:", app.activeDocument.name)
 scr = os.path.join(T, "gf_test.scr")
 with open(scr, "w", encoding="ascii") as f:

@@ -1,7 +1,6 @@
 # SR Drawing Pack: coordinator plan (draft 1, 2026-11-19)
 
-Draft written before `state-init` has run. Once the store exists, live status moves to the store's
-STATE and BACKLOG files and this file keeps only the plan.
+This file keeps only the plan. Live status is in the store's STATE and BACKLOG files (see `AGENTS.md`).
 
 ## Coordination model
 
@@ -30,8 +29,8 @@ add and remove sheets, linked BOM copies, per-view auto annotate. The decision r
 
 | Step | Action | Done when |
 |---|---|---|
-| 1.1 | Spike A: can a native Fusion drawing carry the target style? Test a custom drawing template (sheet 1 title block, simpler continuation sheet), creating a drawing from it through the API, native parts list modes, native revision support, and custom tables for thumbnails. | Pass / fail per requirement group, with evidence. |
-| 1.2 | Spike B: size a custom editor on the handbuilt-cad engine (view model, drag and projection rules, sheet model, linked BOM). | Written estimate and the list of hard parts. |
+| 1.1 | Spike A: can a native Fusion drawing carry the target style? Test a custom drawing template (sheet 1 title block, simpler continuation sheet), creating a drawing from it through the API, native parts list modes, native revision support (re-test the preview revision table and title block API), custom tables for thumbnails, and a views row: base + projected + iso, plus section and detail. | Pass / fail per requirement group, with evidence. |
+| 1.2 | Spike B: size a custom editor on the handbuilt-cad engine (view model, drag and projection rules, sheet model, linked BOM), with a views row: base + projected + iso, plus section and detail. Evidence for the sheet, BOM and rev table parts: sr-drawing-pdf's sheet editor (its view frames are empty). | Written estimate and the list of hard parts. |
 | 1.3 | Spike C: engine output opened in an existing 2D CAD editor via DXF/DWG. Record which links survive. | Pass / fail per requirement group. |
 | 1.4 | Daniel picks the surface. Record in DECISIONS. | Q1 closed. |
 
