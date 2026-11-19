@@ -44,9 +44,8 @@ drawing app would write.
   keeps its own copy of the newest hash. A plain JSON file cannot stop edits by itself; PDM
   permissions do that.
 
-## Open points
+## Settled (see DECISIONS.md)
 
-- Who stamps the rev onto the drawing files at approval (the PDM, or the app called by the PDM).
-- Identity: part number only, or part number plus a hidden ID.
-- Who issues part numbers.
-- Final package contents per item type.
+- Identity is the part number (ADR-022). `component_id` is a trace only.
+- The PDM issues part numbers (ADR-019) and handles the other package files (STEP, sliced files, G-code).
+- At approval the PDM calls the app to re-export with the rev filled in (ADR-022).

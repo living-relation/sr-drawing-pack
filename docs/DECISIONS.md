@@ -154,3 +154,35 @@ Entry format: ID, Status, Context, Decision, Rejected, Supersedes, Reopen if.
 - Rejected: the app generating numbers; a shared counter file; hand-typed numbers.
 - Supersedes: none
 - Reopen if: the app must work before the PDM can issue numbers.
+
+## ADR-020: Repo scope and split with sr-drawing-pdf (2026-11-19)
+- Status: Accepted
+- Context: Planning had started to reach into PDM work, and two repos were at risk of doing the same spike.
+- Decision: This repo is only the drawing generator. Vault, numbering, approval workflow, check-in/out, rev stamping and fab-floor viewing belong to the separate sparkCAD / PDM app; this repo only exposes clean hooks for it. This repo owns requirements, rules, decisions and the plan. sr-drawing-pdf proves out the editor core (sheet engine, template, title block, BOM table, subset-font PDF output); its results are evidence and that spike is not repeated here.
+- Rejected: PDM features here; a second editor-core spike.
+- Supersedes: narrows ADR-012 and the spike B wording of ADR-016
+- Reopen if: Daniel changes the split.
+
+## ADR-021: Views come from saved model orientations (2026-11-19)
+- Status: Accepted. How a view becomes 2D geometry is open.
+- Context: Views must be picked, not rotated by hand on the sheet.
+- Decision: A side panel lists the home view, standard views (front, top, side, back, bottom, iso), variations (trimetric and so on) and the user's saved custom-named orientations. The user drags them onto the sheet, SolidWorks-style. The 3D model is never rotated inside the 2D drawing. Saved orientations are read through Fusion's API: Autodesk's reference documents `Design.namedViews`, a `NamedViews` collection with `itemByName` and `add(camera, name)`, and `NamedView.camera` (introduced September 2023). Verified against the docs only, not yet run in Fusion. The docs list four built-in views (TOP, FRONT, RIGHT, HOME), so back, bottom, iso and the variations must be computed by the app. If a live test shows named views cannot be read, a small "save drawing orientation" tool ships inside this package, not as a separate add-in.
+- Rejected: rotating the model in the drawing; a separate orientation add-in.
+- Supersedes: none
+- Reopen if: the live test fails. Open: 2D hidden-line geometry from (a) Fusion's native drawing engine on a saved cloud design, then extracting lines, or (b) out-of-process projection from exported STEP with the handbuilt-cad build123d engine. Both are being tested in sr-drawing-pdf; do not commit yet.
+
+## ADR-022: Identity, data card and the rev hook (2026-11-19)
+- Status: Accepted
+- Context: Answers to the open data card questions.
+- Decision: The part number is the identity; Fusion's hidden component ID is kept only as a trace. The app writes the trimmed data card in `docs/DATA-CARD.md`. At approval the PDM calls the app to re-export with the rev filled in. STEP, sliced files and G-code are package files the PDM handles.
+- Rejected: a hidden ID as identity; a hash-chained history in the app; the PDM stamping files itself.
+- Supersedes: the Proposed parts of ADR-014
+- Reopen if: the PDM app needs a different hand-off.
+
+## ADR-023: License, skills, thumbnail expand (2026-11-19)
+- Status: Accepted
+- Context: Plan questions Q2, Q3 and Q4.
+- Decision: MIT license. Skills are declared in `AGENTS.md`, not committed. "Click a thumbnail to expand" happens in the editor.
+- Rejected: committed skill copies; expand in a Fusion palette or in the PDF.
+- Supersedes: none
+- Reopen if: Spark Robotic needs a different license at hand-over.
