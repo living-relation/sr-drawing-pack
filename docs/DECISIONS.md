@@ -138,3 +138,11 @@ Entry format: ID, Status, Context, Decision, Rejected, Supersedes, Reopen if.
 - Rejected: per-tool rules files.
 - Supersedes: none
 - Reopen if: none.
+
+## ADR-018: No DWG export (2026-11-19)
+- Status: Accepted
+- Context: DWG from our own engine would need an outside converter with its own license. Daniel does not need DWG.
+- Decision: The app exports PDF and DXF. DWG is dropped. Other formats may be added per drawing purpose; that list is still open.
+- Rejected: DWG through a converter.
+- Supersedes: the DWG part of ADR-004
+- Reopen if: a customer or shop requires DWG.
