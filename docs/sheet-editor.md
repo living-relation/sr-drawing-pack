@@ -73,7 +73,11 @@ A BOM region that fills continues into the next region, on the same sheet or ano
 
 `load_bom_components` takes plain records. It does not read Fusion. A later stage can fill those records from SR BOM properties on the components.
 
-`check` warns if the title rev letter does not match the newest log row, if initials look wrong, if BOM rows do not fit, or if a balloon points at a missing row. The PDF is still written, so a drawing can be saved in the middle of an edit.
+`check` warns if the title rev letter does not match the newest log row, if initials look wrong, if two BOM rows share an item number, if a BOM region has no height, overlaps the title block or the rev table, or runs off the sheet, if BOM rows do not fit, or if a balloon points at a missing row. The PDF is still written, so a drawing can be saved in the middle of an edit. `place_bom` rejects a `max_height` of 0 or less.
+
+The PDF embeds DejaVu Sans (the same family as the filed drawings). Diameter (⌀), ≤, and ≥ draw as themselves. A character the font does not have is named in the export warnings.
+
+The tolerance block does not add an edge-break line. Put that text in the `tol` field only when you want it on that drawing.
 
 Sheet rules that this package draws are in `SRDrawingPDF/sheet2d/SHEET-RULES.md`.
 
@@ -89,15 +93,31 @@ That writes a two-sheet sample through the same commands. The view frames are em
 
 The owner's Fusion MCP (https://github.com/living-relation/autodesk-fusion-mcp) is a separate add-in. This repo does not include it. That add-in has an `execute_python` tool that runs code on Fusion's main thread. A call should finish well under its 120 second limit. These commands are local drawing math and a PDF write.
 
-Fusion keeps simple variables between calls, not imported modules. Keep the drawing dict in `drawing_doc`. Find the add-in and its command module on every call. Do not put the add-in folder on `sys.path` yourself. `editor_api()` returns the module already loaded with the add-in.
+Do not call the add-in's `run()` or `stop()` from `execute_python`. `stop()` froze Fusion's main thread in testing. Use `editor_api()` and the commands below. Nothing else.
+
+Fusion keeps simple variables between calls, not imported modules. Keep the drawing dict in `drawing_doc`. On a PC where the add-in folder is junctioned into Fusion's AddIns folder, Fusion can load two copies of this file (the junction path and the real folder). They are the same add-in. Ask every loaded copy for the API; `editor_api()` follows the link and returns the one command module.
+
+```python
+import sys
+copies = [m for m in sys.modules.values() if getattr(m, 'CMD_ID', None) == 'srDrawingPdfCmd']
+if not copies:
+    raise RuntimeError('SR Drawing PDF is not loaded. Start the add-in. Do not call run() or stop().')
+api = None
+err = None
+for addin in copies:
+    try:
+        api = addin.editor_api()
+        break
+    except RuntimeError as exc:
+        err = exc
+if api is None:
+    raise err
+drawing_doc = globals().get('drawing_doc')
+```
 
 Set a title:
 
 ```python
-import sys
-addin = next(m for m in sys.modules.values() if getattr(m, 'CMD_ID', None) == 'srDrawingPdfCmd')
-api = addin.editor_api()
-drawing_doc = globals().get('drawing_doc')
 step = api.execute(drawing_doc, 'add_sheet', {'id': 's1', 'name': 'Sheet 1'})
 drawing_doc = step['document']
 step = api.execute(drawing_doc, 'set_title', {'field': 'title', 'value': 'SAMPLE BRACKET ASSEMBLY'})
@@ -112,10 +132,6 @@ Use the same id on a retry. `add_sheet` with `id` `s1` again does not add a seco
 Export:
 
 ```python
-import sys
-addin = next(m for m in sys.modules.values() if getattr(m, 'CMD_ID', None) == 'srDrawingPdfCmd')
-api = addin.editor_api()
-drawing_doc = globals().get('drawing_doc')
 pdf_path = globals().get('pdf_path')  # a path you chose
 step = api.execute(drawing_doc, 'export_pdf', {'path': pdf_path})
 drawing_doc = step['document']

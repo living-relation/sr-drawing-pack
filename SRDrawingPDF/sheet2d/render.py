@@ -1,6 +1,6 @@
 """Turn a drawing document into sheet primitives and a PDF."""
 from .canvas import Sheet, draw_balloon, draw_bom, draw_frame, draw_note_flag, draw_notes, draw_view_box
-from .model import item_of, layout_bom, note_number, resolved_title, size_of
+from .model import _bom_colw, _bom_text_h, item_of, layout_bom, note_number, resolved_title, size_of
 from .pdf import write_pdf
 
 
@@ -11,6 +11,14 @@ def render_sheets(doc):
     layout = layout_bom(doc)
     by_region = {seg['id']: seg for seg in layout['segments']}
     row_by_key = {r.get('key'): r for r in doc.bom}
+    first_bom = None
+    for sheet in doc.sheets:
+        for el in sheet.get('elements') or []:
+            if el.get('type') == 'bom':
+                first_bom = el
+                break
+        if first_bom is not None:
+            break
     n = len(doc.sheets)
     out = []
     for index, sheet in enumerate(doc.sheets, 1):
@@ -29,7 +37,10 @@ def render_sheets(doc):
             elif kind == 'bom':
                 seg = by_region.get(el.get('id'))
                 if seg and seg['rows']:
-                    draw_bom(canvas, [row_by_key[k] for k in seg['rows'] if k in row_by_key], el, seg['continued'])
+                    styled = dict(el)
+                    styled['text_h'] = _bom_text_h(el, first_bom, seg['continued'])
+                    styled['colw'] = list(_bom_colw(el, first_bom, seg['continued']))
+                    draw_bom(canvas, [row_by_key[k] for k in seg['rows'] if k in row_by_key], styled, seg['continued'])
             elif kind == 'notes':
                 draw_notes(
                     canvas, float(el['x']), float(el['y']), doc.notes,
@@ -48,5 +59,5 @@ def render_sheets(doc):
 
 def export_pdf(doc, path):
     sheets = render_sheets(doc)
-    write_pdf(sheets, path)
-    return len(sheets)
+    missing = write_pdf(sheets, path)
+    return len(sheets), missing

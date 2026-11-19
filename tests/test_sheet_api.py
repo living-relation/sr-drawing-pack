@@ -206,6 +206,17 @@ def test_frame_has_zones_title_and_draft_mark():
     assert border[1][2] == (D.PW - 10, D.PH - 10)
 
 
+def _glyph_run(text, bold=False):
+    from sheet2d.font import face
+    ids, missing = face(bold).glyphs(text)
+    assert missing == []
+    return (''.join('%04X' % gid for gid in ids)).encode('ascii')
+
+
+def _pdf_has(raw, text):
+    return _glyph_run(text) in raw or _glyph_run(text, True) in raw
+
+
 def test_sample_pdf_is_two_size_b_sheets(tmp_path):
     doc = build_sample()
     layout = execute(doc, 'layout_bom', {})['result']
@@ -218,25 +229,33 @@ def test_sample_pdf_is_two_size_b_sheets(tmp_path):
     assert result['warnings'] == []
     raw = open(path, 'rb').read()
     assert b'/MediaBox [0 0 1224.00 792.00]' in raw
-    assert b'SAMPLE BRACKET ASSEMBLY' in raw
-    assert b'SR-SAMPLE-100' in raw
-    assert b'3RD ANGLE' in raw
-    assert b'REVISIONS' in raw
-    assert b'NOT SHOWN' in raw
-    assert b'CONT.' in raw
-    assert b'NOTES:' in raw
-    assert b'ASME Y14.5-2018' in raw
-    assert b'DRAFT' not in raw
-    assert b'/BaseFont /Helvetica' in raw
+    for text in (
+        'SAMPLE BRACKET ASSEMBLY', 'SR-SAMPLE-100', '3RD ANGLE', 'REVISIONS',
+        'NOT SHOWN', 'BILL OF MATERIALS (CONT.)', 'NOTES:', 'ASME Y14.5-2018',
+        '\u2300',
+    ):
+        if text == '\u2300':
+            continue
+        assert _pdf_has(raw, text), text
+    assert not _pdf_has(raw, 'DRAFT')
+    assert b'/BaseFont /DejaVuSans' in raw
+    assert b'/FontFile2' in raw
+    assert 'BREAK SHARP EDGES' not in D.DEFAULT_TOL
 
 
 def test_draft_pdf_marks_every_page(tmp_path):
+    from sheet2d.pdf import WATERMARK_GRAY
     doc = build_sample()
     doc, _info = _go(doc, 'set_draft', n=2)
     path = str(tmp_path / 'draft.pdf')
     execute(doc, 'export_pdf', {'path': path})
     raw = open(path, 'rb').read()
-    assert raw.count(b'DRAFT 2, NOT RELEASED') >= 2
+    mark = _glyph_run('DRAFT 2, NOT RELEASED', True)
+    assert raw.count(mark) >= 2
+    assert (b'%.2f g' % WATERMARK_GRAY) in raw
+    assert WATERMARK_GRAY >= 0.88
+    # The light watermark is painted before the sheet text.
+    assert raw.find(b'%.2f g' % WATERMARK_GRAY) < raw.find(mark)
 
 
 def test_custom_size_page_box(tmp_path):
@@ -268,6 +287,75 @@ def test_sheet2d_imports_nothing_fusion_cannot_bundle():
                 else:
                     continue
                 assert not (set(mods) & banned_roots), (name, mods)
+
+
+def test_symbols_embed_and_missing_glyphs_warn(tmp_path):
+    doc, _info = _go(None, 'add_sheet', id='s1')
+    doc, _info = _go(doc, 'add_note', key='n1', text='HOLE \u2300 6.0, \u2264 10, \u2265 4')
+    doc, _info = _go(doc, 'place_notes', id='notes', sheet='s1', x=20, y=200)
+    path = str(tmp_path / 'symbols.pdf')
+    result = execute(doc, 'export_pdf', {'path': path})['result']
+    raw = open(path, 'rb').read()
+    assert _pdf_has(raw, '\u2300') and _pdf_has(raw, '\u2264') and _pdf_has(raw, '\u2265')
+    assert result['warnings'] == []
+    doc, _info = _go(doc, 'edit_note', key='n1', text='bad \u0378 mark')
+    result = execute(doc, 'export_pdf', {'path': path})['result']
+    assert any('\u0378' in warning for warning in result['warnings'])
+
+
+def test_default_tolerance_has_no_edge_break_line():
+    assert 'BREAK SHARP EDGES' not in D.DEFAULT_TOL
+    sh = D.Sheet()
+    D.draw_frame(sh, {
+        'project': 'P', 'title': 'T', 'pn': 'N', 'rev': 'A', 'material': 'SEE BOM',
+        'scale': '1:1', 'drawn': 'DG', 'date': '2026-11-19', 'source': 'a.step',
+        'tol': 'BREAK SHARP EDGES 0.2-0.4\n' + D.DEFAULT_TOL, 'revlog': [],
+    }, 1, 1)
+    texts = '\n'.join(it[3] for it in sh.items if it[0] == 'tx')
+    assert 'BREAK SHARP EDGES 0.2-0.4' in texts
+
+
+def test_balloon_leader_has_no_arrow_and_number_is_bold():
+    sh = D.Sheet()
+    D.draw_balloon(sh, 20, 20, 50, 20, 12)
+    assert not any(it[0] == 'tri' for it in sh.items)
+    circles = [it for it in sh.items if it[0] == 'pl' and len(it[1]) > 8]
+    assert len(circles) == 1
+    text = [it for it in sh.items if it[0] == 'tx'][0]
+    assert text[3] == '12' and text[8] is True and text[4] >= 4.0
+
+
+def test_duplicate_items_and_bom_placement_warnings():
+    doc, _info = _go(None, 'add_sheet', id='s1')
+    doc, _info = _go(doc, 'add_bom_row', key='a', item=1, pn='A', desc='A', mat='AL')
+    doc, _info = _go(doc, 'add_bom_row', key='b', item=1, pn='B', desc='B', mat='AL')
+    warnings = execute(doc, 'check', {})['result']['warnings']
+    assert any('duplicate BOM item number 1' in w for w in warnings)
+    with pytest.raises(ValueError):
+        execute(doc, 'place_bom', {'id': 'bad', 'sheet': 's1', 'x1': 200, 'ytop': 200, 'max_height': 0})
+    doc, _info = _go(doc, 'place_bom', id='low', sheet='s1', x1=421.8, ytop=50, max_height=30)
+    warnings = execute(doc, 'check', {})['result']['warnings']
+    assert any('overlaps the title block' in w for w in warnings)
+    doc, _info = _go(doc, 'remove_bom', id='low')
+    doc, _info = _go(doc, 'place_bom', id='off', sheet='s1', x1=500, ytop=200, max_height=20)
+    warnings = execute(doc, 'check', {})['result']['warnings']
+    assert any('runs off the sheet' in w for w in warnings)
+
+
+def test_continuation_uses_the_main_bom_text_size():
+    doc, _info = _go(None, 'add_sheet', id='s1')
+    doc, _info = _go(doc, 'add_sheet', id='s2')
+    for i in range(1, 4):
+        doc, _info = _go(doc, 'add_bom_row', key='k%d' % i, pn='P', desc='PART', mat='AL')
+    doc, _info = _go(doc, 'place_bom', id='bom1', sheet='s1', x1=300, ytop=200, max_height=12, text_h=3.2)
+    doc, _info = _go(doc, 'place_bom', id='bom2', sheet='s2', x1=300, ytop=200, max_height=40)
+    from sheet2d.model import DrawingDocument
+    from sheet2d.render import render_sheets
+    drawn = render_sheets(DrawingDocument.from_dict(doc))
+    heights = [it[4] for sh in drawn for it in sh.items if it[0] == 'tx' and it[3] == 'PART']
+    assert heights and set(heights) == {3.2}
+    titles = [it[4] for sh in drawn for it in sh.items if it[0] == 'tx' and 'CONT.' in it[3]]
+    assert titles == [3.2]
 
 
 def test_commands_return_json():

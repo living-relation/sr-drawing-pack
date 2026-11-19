@@ -7,7 +7,7 @@ import types
 ADDIN = os.path.join(os.path.dirname(__file__), '..', 'SRDrawingPDF')
 
 
-def _load_addin():
+def _load_addin(path=None, name='srdp_editor_api_under_test'):
     adsk = sys.modules.get('adsk')
     if adsk is None:
         adsk = types.ModuleType('adsk')
@@ -24,7 +24,7 @@ def _load_addin():
 
     adsk.core.CommandCreatedEventHandler = adsk.core.InputChangedEventHandler = _H
     adsk.core.CommandEventHandler = adsk.core.DocumentEventHandler = adsk.core.CustomEventHandler = _H
-    spec = importlib.util.spec_from_file_location('srdp_editor_api_under_test', os.path.join(ADDIN, 'SRDrawingPDF.py'))
+    spec = importlib.util.spec_from_file_location(name, path or os.path.join(ADDIN, 'SRDrawingPDF.py'))
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -39,6 +39,23 @@ def test_editor_api_reuses_sys_modules():
     assert first is commands
     assert second is first
     assert sys.modules['sheet2d.commands'] is commands
+    assert sys.path == before
+
+
+def test_editor_api_follows_a_symlinked_addin_folder(tmp_path):
+    """A junction (or symlink) and the real folder are the same add-in."""
+    link = tmp_path / 'junction'
+    link.symlink_to(ADDIN, target_is_directory=True)
+    linked = str(link / 'SRDrawingPDF.py')
+    real = os.path.join(ADDIN, 'SRDrawingPDF.py')
+    assert os.path.abspath(linked) != os.path.abspath(real)
+    assert os.path.realpath(linked) == os.path.realpath(real)
+    from sheet2d import commands as commands
+    mod = _load_addin(linked, 'srdp_via_junction')
+    before = list(sys.path)
+    api = mod.editor_api()
+    assert api is commands
+    assert os.path.realpath(api.__file__) == os.path.realpath(commands.__file__)
     assert sys.path == before
 
 

@@ -5,7 +5,6 @@ Text width for wrapping uses the same 0.82*height estimate as the drawings this
 matches. The PDF writer centres text with real Helvetica widths.
 """
 import math
-import textwrap
 
 PW, PH = 431.8, 279.4
 TH = 3.0
@@ -44,7 +43,8 @@ REVLOG_LP = 1.45
 
 BOM_COLS = (9, 9, 44, 80, 40)
 BOM_HEADS = ('ITEM', 'QTY', 'PART NUMBER', 'DESCRIPTION', 'MATERIAL / SPEC')
-BALLOON_R = 4.0
+BALLOON_R = 5.2
+BALLOON_TEXT_H = 4.4
 
 
 class Sheet:
@@ -75,10 +75,50 @@ class Sheet:
         self.items.append(('tri', [tuple(float(a) for a in p) for p in pts]))
 
 
-def _wrap(t, w, h):
-    """Wrap t to column width w (mm) at text height h. Never truncates."""
-    nc = max(4, int((w - 1.5) / (h * 0.82)))
-    return textwrap.wrap(str(t), nc, break_long_words=True, break_on_hyphens=False) or ['']
+def _wrap(t, w, h, bold=False):
+    """Wrap t to the column width w (mm) using the real font width. Never truncates."""
+    from .font import text_width_mm
+    avail = max(2.0, float(w) - 1.0)
+    text = str(t)
+    if text == '':
+        return ['']
+    lines = []
+    for para in text.split('\n'):
+        words = para.split(' ')
+        cur = ''
+        for word in words:
+            pieces = _pieces(word, avail, h, bold)
+            for extra, piece in enumerate(pieces):
+                if extra and cur:
+                    lines.append(cur)
+                    cur = ''
+                trial = piece if not cur else cur + ' ' + piece
+                if cur and text_width_mm(trial, h, bold) > avail:
+                    lines.append(cur)
+                    cur = piece
+                else:
+                    cur = trial
+        lines.append(cur)
+    return lines or ['']
+
+
+def _pieces(word, avail, h, bold):
+    """Split a word that is wider than the column. Shorter words stay whole."""
+    from .font import text_width_mm
+    if text_width_mm(word, h, bold) <= avail:
+        return [word]
+    parts = []
+    cur = ''
+    for ch in word:
+        trial = cur + ch
+        if cur and text_width_mm(trial, h, bold) > avail:
+            parts.append(cur)
+            cur = ch
+        else:
+            cur = trial
+    if cur:
+        parts.append(cur)
+    return parts or ['']
 
 
 def _edges(x0, cols):
@@ -261,10 +301,7 @@ def bom_row_cells(row):
 
 
 def bom_row_height(cells, colw, h):
-    wrapped = []
-    for i, c in enumerate(cells):
-        nc = max(3, int(colw[i] / (h * 0.80)))
-        wrapped.append(textwrap.wrap(str(c), nc) or [''])
+    wrapped = [_wrap(c, colw[i], h) for i, c in enumerate(cells)]
     nl = max(len(w) for w in wrapped)
     rh = h * 2.1
     hh = rh * (1 + 0.75 * (nl - 1))
@@ -318,10 +355,14 @@ def draw_bom(sh, rows, el, continued):
 def draw_notes(sh, x, y, notes, h=2.6, width=136):
     sh.txt(x, y, 'NOTES:', h=3.0, ha='left', va='top', bold=True)
     yy = y - 5
-    nc = max(8, int(width / (h * 0.84)))
     for i, note in enumerate(notes, 1):
         text = note.get('text') if isinstance(note, dict) else str(note)
-        body = textwrap.fill(str(text).replace('\n', ' '), nc, subsequent_indent='     ')
+        body = '\n'.join(_wrap(str(text).replace('\n', ' '), width, h))
+        # Hang the wrapped lines under the number.
+        if '\n' in body:
+            first, rest = body.split('\n', 1)
+            rest = '\n'.join('     ' + line for line in rest.split('\n'))
+            body = first + '\n' + rest
         line = '%d.  %s' % (i, body)
         sh.txt(x, yy, line, h=h, ha='left', va='top')
         nh = h * 1.6 * (line.count('\n') + 1)
@@ -329,38 +370,30 @@ def draw_notes(sh, x, y, notes, h=2.6, width=136):
     return yy
 
 
-def _arrow(sh, tip, frm, length=2.2, width=0.9):
-    dx, dy = tip[0] - frm[0], tip[1] - frm[1]
-    n = math.hypot(dx, dy)
-    if n < 1e-9:
-        return
-    dx, dy = dx / n, dy / n
-    px, py = -dy, dx
-    bx, by = tip[0] - dx * length, tip[1] - dy * length
-    sh.tri([tip, (bx + px * width / 2, by + py * width / 2), (bx - px * width / 2, by - py * width / 2)])
-
-
-def draw_balloon(sh, x, y, ax, ay, number, r=BALLOON_R):
+def draw_balloon(sh, x, y, ax, ay, number, r=None):
+    """Circled item number. The leader ends on the part: no arrowhead and no dot."""
+    from .font import text_width_mm
+    label = str(number)
+    h = BALLOON_TEXT_H
+    if r is None:
+        r = max(BALLOON_R, text_width_mm(label, h, True) / 2.0 + 1.4)
     sh.circle((x, y), r, 'tb')
-    sh.txt(x, y, str(number), h=3.2, bold=True)
+    sh.txt(x, y, label, h=h, bold=True)
     dx, dy = ax - x, ay - y
     dist = math.hypot(dx, dy)
     if dist > r:
         sh.line((x + dx / dist * r, y + dy / dist * r), (ax, ay), 'dim')
-        _arrow(sh, (ax, ay), (x, y))
-    sh.circle((ax, ay), 0.45, 'tb', n=12)
 
 
 def draw_note_flag(sh, x, y, ax, ay, number):
     s = 4.2
     pts = [(x, y + s), (x + s * 0.92, y - s * 0.72), (x - s * 0.92, y - s * 0.72)]
     sh.pl(pts, 'tb', closed=True)
-    sh.txt(x, y - 0.5, str(number), h=3.0, bold=True)
+    sh.txt(x, y - 0.5, str(number), h=3.2, bold=True)
     dx, dy = ax - x, ay - y
     dist = math.hypot(dx, dy)
     if dist > s:
         sh.line((x + dx / dist * s, y + dy / dist * s), (ax, ay), 'dim')
-        _arrow(sh, (ax, ay), (x, y))
 
 
 def draw_view_box(sh, el):

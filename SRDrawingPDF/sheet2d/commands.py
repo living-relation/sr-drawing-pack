@@ -466,6 +466,8 @@ def _bom_fields(args, existing):
             fields[key] = float(args[key])
     if 'colw' in args and args['colw'] is not None:
         fields['colw'] = [float(c) for c in args['colw']]
+    if 'max_height' in fields and fields['max_height'] <= 0:
+        raise ValueError('max_height must be greater than 0')
     if existing is None:
         for key in ('x1', 'ytop', 'max_height'):
             if key not in fields:
@@ -675,8 +677,11 @@ def _cmd_check(doc, args):
 
 def _cmd_export(doc, args):
     path = args['path']
-    pages = write_document_pdf(doc, path)
-    return {'path': path, 'pages': pages, 'warnings': document_warnings(doc)}
+    pages, missing = write_document_pdf(doc, path)
+    warnings = document_warnings(doc)
+    if missing:
+        warnings.append('font has no glyph for: %s' % ''.join(missing))
+    return {'path': path, 'pages': pages, 'warnings': warnings}
 
 
 def _cmd_save(doc, args):

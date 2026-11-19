@@ -176,14 +176,18 @@ def editor_api():
     import importlib
     import sys
     here = os.path.dirname(os.path.abspath(__file__))
-    package_dir = os.path.normcase(os.path.abspath(os.path.join(here, 'sheet2d')))
-    root = package_dir + os.sep
+
+    def _real(path):
+        # realpath follows the junction Fusion uses for AddIns, and a symlink.
+        return os.path.normcase(os.path.realpath(path))
+
+    package_root = _real(os.path.join(here, 'sheet2d')) + os.sep
 
     def _from_here(mod):
         path = getattr(mod, '__file__', None) or ''
         if not path:
             return False
-        return os.path.normcase(os.path.abspath(path)).startswith(root)
+        return _real(path).startswith(package_root)
 
     named = sys.modules.get('sheet2d.commands')
     if named is not None and getattr(named, 'API_ID', None) == 'srDrawingPdfSheetApi':
@@ -195,8 +199,17 @@ def editor_api():
     for mod in list(sys.modules.values()):
         if getattr(mod, 'API_ID', None) == 'srDrawingPdfSheetApi' and _from_here(mod):
             return mod
-    target = os.path.normcase(os.path.abspath(here))
-    already = any(entry and os.path.normcase(os.path.abspath(entry)) == target for entry in sys.path)
+    target = _real(here)
+    already = False
+    for entry in sys.path:
+        if not entry:
+            continue
+        try:
+            if _real(entry) == target:
+                already = True
+                break
+        except OSError:
+            continue
     if not already:
         sys.path.insert(0, here)
     return importlib.import_module('sheet2d.commands')

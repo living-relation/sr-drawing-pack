@@ -8,6 +8,7 @@ from .canvas import (
     bom_header_height,
     bom_row_cells,
     bom_row_height,
+    revlog_rect,
 )
 from .revs import (
     REVLOG_MAX_ROWS,
@@ -209,11 +210,21 @@ def layout_bom(doc):
     segments = []
     idx = 0
     rows = doc.bom
+    first = regions[0][1] if regions else None
     for sheet, el in regions:
         continued = any(seg['rows'] for seg in segments)
-        h = float(el.get('text_h') or 2.0)
-        colw = tuple(float(c) for c in (el.get('colw') or BOM_COLS))
+        h = _bom_text_h(el, first, continued)
+        colw = _bom_colw(el, first, continued)
         max_h = float(el.get('max_height') or 0)
+        if max_h <= 0:
+            segments.append({
+                'id': el.get('id'),
+                'sheet': sheet.get('id'),
+                'continued': continued,
+                'rows': [],
+                'bottom': round(float(el.get('ytop') or 0), 4),
+            })
+            continue
         header = bom_header_height(h, continued)
         used = header
         taken = []
@@ -235,6 +246,67 @@ def layout_bom(doc):
     return {'segments': segments, 'overflow': [r.get('key') for r in rows[idx:]]}
 
 
+def _bom_text_h(el, first, continued):
+    """Continuation tables use the first table's text size unless one is set."""
+    if el.get('text_h') is not None:
+        return float(el['text_h'])
+    if continued and first is not None and first.get('text_h') is not None:
+        return float(first['text_h'])
+    return 2.0
+
+
+def _bom_colw(el, first, continued):
+    colw = el.get('colw')
+    if not colw and continued and first is not None and first.get('colw'):
+        colw = first.get('colw')
+    return tuple(float(c) for c in (colw or BOM_COLS))
+
+
+def _overlap(a, b):
+    return a[0] < b[2] and a[2] > b[0] and a[1] < b[3] and a[3] > b[1]
+
+
+def _bom_warnings(doc, warnings):
+    counts = {}
+    for row in doc.bom:
+        counts.setdefault(row.get('item'), []).append(row.get('key'))
+    for item, keys in counts.items():
+        if len(keys) > 1:
+            warnings.append('duplicate BOM item number %s (%s)' % (item, ', '.join(str(k) for k in keys)))
+    rows = table_rows(doc.revlog, REVLOG_MAX_ROWS)
+    first = None
+    for sheet in doc.sheets:
+        for el in sheet.get('elements') or []:
+            if el.get('type') == 'bom' and first is None:
+                first = el
+    seen_first = False
+    for index, sheet in enumerate(doc.sheets):
+        spec = size_of(doc, sheet.get('size') or 'B')
+        width, height = float(spec['width']), float(spec['height'])
+        margin = 10.0
+        title = (width - margin - 178, margin, width - margin, margin + 52)
+        rev = revlog_rect(rows, x1=width - margin, y1=height - margin) if index == 0 else None
+        for el in sheet.get('elements') or []:
+            if el.get('type') != 'bom':
+                continue
+            continued = seen_first
+            seen_first = True
+            colw = _bom_colw(el, first, continued)
+            x1 = float(el.get('x1') or 0)
+            top = float(el.get('ytop') or 0)
+            max_h = float(el.get('max_height') or 0)
+            if max_h <= 0:
+                warnings.append('BOM region %s has no height' % el.get('id'))
+                continue
+            box = (x1 - sum(colw), top - max_h, x1, top)
+            if box[0] < -0.01 or box[1] < -0.01 or box[2] > width + 0.01 or box[3] > height + 0.01:
+                warnings.append('BOM region %s runs off the sheet' % el.get('id'))
+            if _overlap(box, title):
+                warnings.append('BOM region %s overlaps the title block' % el.get('id'))
+            if rev is not None and _overlap(box, rev):
+                warnings.append('BOM region %s overlaps the rev table' % el.get('id'))
+
+
 def document_warnings(doc):
     warnings = []
     rows = table_rows(doc.revlog, REVLOG_MAX_ROWS)
@@ -246,6 +318,7 @@ def document_warnings(doc):
     layout = layout_bom(doc)
     if layout['overflow']:
         warnings.append('BOM rows do not fit: %s' % ', '.join(str(k) for k in layout['overflow']))
+    _bom_warnings(doc, warnings)
     keys = {r.get('key') for r in doc.bom}
     note_keys = {n.get('key') for n in doc.notes}
     for sheet in doc.sheets:
