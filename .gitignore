@@ -1,0 +1,9 @@
+# Local-only research material: third-party clones, test exports, private reference drawings, logs
+research/_local/
+
+__pycache__/
+*.py[codz]
+.venv/
+.pytest_cache/
+*.out
+*.err
