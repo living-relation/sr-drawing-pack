@@ -206,15 +206,46 @@ def test_frame_has_zones_title_and_draft_mark():
     assert border[1][2] == (D.PW - 10, D.PH - 10)
 
 
-def _glyph_run(text, bold=False):
-    from sheet2d.font import face
-    ids, missing = face(bold).glyphs(text)
-    assert missing == []
-    return (''.join('%04X' % gid for gid in ids)).encode('ascii')
+def _tounicode_maps(raw):
+    """unicode code -> glyph id, one dict per ToUnicode CMap in the PDF."""
+    maps = []
+    start = 0
+    while True:
+        at = raw.find(b'beginbfchar', start)
+        if at < 0:
+            break
+        block_end = raw.find(b'endcmap', at)
+        chunk = raw[at:block_end if block_end > 0 else at + 200000]
+        mapping = {}
+        for line in chunk.splitlines():
+            if not line.startswith(b'<') or b'<' not in line[1:]:
+                continue
+            parts = line.split(b'>')
+            if len(parts) < 2:
+                continue
+            gid = parts[0].lstrip(b'<').strip()
+            uni = parts[1].lstrip(b' <').strip()
+            if not gid or not uni:
+                continue
+            try:
+                mapping[int(uni, 16)] = int(gid, 16)
+            except ValueError:
+                continue
+        if mapping:
+            maps.append(mapping)
+        start = at + 10
+    return maps
 
 
 def _pdf_has(raw, text):
-    return _glyph_run(text) in raw or _glyph_run(text, True) in raw
+    for mapping in _tounicode_maps(raw):
+        try:
+            seq = ''.join('%04X' % mapping[ord(ch)] for ch in text)
+        except KeyError:
+            continue
+        if seq.encode('ascii') in raw:
+            return True
+    return False
 
 
 def test_sample_pdf_is_two_size_b_sheets(tmp_path):
@@ -250,7 +281,15 @@ def test_draft_pdf_marks_every_page(tmp_path):
     path = str(tmp_path / 'draft.pdf')
     execute(doc, 'export_pdf', {'path': path})
     raw = open(path, 'rb').read()
-    mark = _glyph_run('DRAFT 2, NOT RELEASED', True)
+    mark = None
+    for mapping in _tounicode_maps(raw):
+        try:
+            mark = ''.join('%04X' % mapping[ord(ch)] for ch in 'DRAFT 2, NOT RELEASED').encode('ascii')
+        except KeyError:
+            continue
+        if mark in raw:
+            break
+    assert mark and mark in raw
     assert raw.count(mark) >= 2
     assert (b'%.2f g' % WATERMARK_GRAY) in raw
     assert WATERMARK_GRAY >= 0.88
@@ -356,6 +395,76 @@ def test_continuation_uses_the_main_bom_text_size():
     assert heights and set(heights) == {3.2}
     titles = [it[4] for sh in drawn for it in sh.items if it[0] == 'tx' and 'CONT.' in it[3]]
     assert titles == [3.2]
+
+
+def _embedded_fonts(raw):
+    from sheet2d.font import Face
+    import struct
+    found = []
+    start = 0
+    while True:
+        at = raw.find(b'\x00\x01\x00\x00', start)
+        if at < 0:
+            break
+        start = at + 1
+        if at + 12 > len(raw):
+            continue
+        try:
+            count = struct.unpack('>H', raw[at + 4:at + 6])[0]
+        except struct.error:
+            continue
+        if not 8 <= count <= 30:
+            continue
+        end = 0
+        ok = True
+        for i in range(count):
+            rec = at + 12 + i * 16
+            if rec + 16 > len(raw):
+                ok = False
+                break
+            off, length = struct.unpack('>II', raw[rec + 8:rec + 16])
+            end = max(end, off + length)
+        if not ok or end <= 0 or at + end > len(raw):
+            continue
+        try:
+            found.append(Face(data=raw[at:at + end]))
+        except Exception:
+            continue
+    return found
+
+
+def test_subset_font_keeps_used_glyphs_and_stays_small(tmp_path):
+    doc, _info = _go(None, 'add_sheet', id='s1')
+    doc, _info = _go(doc, 'set_title', field='title', value='A')
+    empty_path = str(tmp_path / 'empty.pdf')
+    execute(doc, 'export_pdf', {'path': empty_path})
+    empty = open(empty_path, 'rb').read()
+    assert len(empty) < 300 * 1024
+    fonts = _embedded_fonts(empty)
+    assert len(fonts) >= 2
+    for loaded in fonts:
+        assert loaded.has('A')
+        assert len(loaded.glyph_blobs[loaded.glyph_id('A')]) > 0
+        assert not loaded.has('\u4e00')
+        assert len(loaded.glyph_blobs) < 500
+    sample_path = str(tmp_path / 'sample.pdf')
+    execute(build_sample(), 'export_pdf', {'path': sample_path})
+    assert os.path.getsize(sample_path) < 1000 * 1024
+
+
+def test_bom_point_size_matches_the_filed_parts_list(tmp_path):
+    """bom_table uses h=2.0 mm. dwg.py draws that at h * (72/25.4) / 0.72 pt."""
+    from sheet2d.pdf import font_pt
+    expected = 2.0 * (72.0 / 25.4) / 0.72
+    assert abs(font_pt(D.BOM_TEXT_MM) - expected) < 1e-9
+    doc, _info = _go(None, 'add_sheet', id='s1')
+    doc, _info = _go(doc, 'add_bom_row', key='a', item=1, pn='PN', desc='PART', mat='AL')
+    doc, _info = _go(doc, 'place_bom', id='bom', sheet='s1', x1=300, ytop=200, max_height=40)
+    path = str(tmp_path / 'bom.pdf')
+    execute(doc, 'export_pdf', {'path': path})
+    raw = open(path, 'rb').read()
+    token = ('%.5f Tf' % expected).encode('ascii')
+    assert token in raw
 
 
 def test_commands_return_json():

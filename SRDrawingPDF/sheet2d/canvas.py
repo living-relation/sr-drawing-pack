@@ -42,6 +42,10 @@ REVLOG_MAX_H = 48.0
 REVLOG_LP = 1.45
 
 BOM_COLS = (9, 9, 44, 80, 40)
+# handbuilt-cad drawing/asm.py bom_table(..., h=2.0). There is no bom_table.py.
+# dwg.py turns that into points as h * (72/25.4) / 0.72, which is 7.874 pt
+# in the filed FH-200 parts list.
+BOM_TEXT_MM = 2.0
 BOM_HEADS = ('ITEM', 'QTY', 'PART NUMBER', 'DESCRIPTION', 'MATERIAL / SPEC')
 BALLOON_R = 5.2
 BALLOON_TEXT_H = 4.4
@@ -318,7 +322,7 @@ def bom_header_height(h, continued):
 
 def draw_bom(sh, rows, el, continued):
     """Draw one BOM segment. `rows` are already the rows that fit here."""
-    h = float(el.get('text_h') or 2.0)
+    h = float(BOM_TEXT_MM if el.get('text_h') is None else el.get('text_h'))
     colw = tuple(float(c) for c in (el.get('colw') or BOM_COLS))
     x1 = float(el['x1'])
     top = float(el['ytop'])

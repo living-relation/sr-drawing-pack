@@ -76,8 +76,15 @@ def _cmap12(table, offset):
 
 
 class Face(object):
-    def __init__(self, path):
-        self.data = open(path, 'rb').read()
+    def __init__(self, path=None, data=None):
+        if data is None:
+            data = open(path, 'rb').read()
+        self._load(data)
+
+    def _load(self, data):
+        self.data = data
+        self._widths = None
+        self._tounicode = None
         tables = _tables(self.data)
         head = tables[b'head']
         self.upem = struct.unpack('>H', head[18:20])[0]
@@ -89,19 +96,26 @@ class Face(object):
         nglyphs = struct.unpack('>H', maxp[4:6])[0]
         hmtx = tables[b'hmtx']
         advances = []
+        lsbs = []
         for i in range(nmetrics):
-            advances.append(struct.unpack('>H', hmtx[i * 4:i * 4 + 2])[0])
-        if advances:
-            advances.extend([advances[-1]] * (nglyphs - nmetrics))
+            adv, lsb = struct.unpack('>Hh', hmtx[i * 4:i * 4 + 4])
+            advances.append(adv)
+            lsbs.append(lsb)
+        extra = hmtx[nmetrics * 4:]
+        last = advances[-1] if advances else 0
+        for i in range(nglyphs - nmetrics):
+            advances.append(last)
+            lsbs.append(struct.unpack('>h', extra[i * 2:i * 2 + 2])[0] if len(extra) >= (i + 1) * 2 else 0)
         self.advances = advances
+        self.lsbs = lsbs
+        self.glyph_blobs = _glyph_blobs(tables, head, nglyphs)
+        self._src_tables = tables
         os2 = tables.get(b'OS/2')
         cap = None
         if os2 and len(os2) >= 90 and struct.unpack('>H', os2[:2])[0] >= 2:
             cap = struct.unpack('>h', os2[88:90])[0]
         self.cap = cap or int(self.upem * 0.72)
         self.cmap = _cmap(tables[b'cmap'])
-        self._widths = None
-        self._tounicode = None
 
     def glyph_id(self, char):
         return self.cmap.get(ord(char), 0)
@@ -172,6 +186,211 @@ class Face(object):
             lines.extend(['endcmap', 'CMapName currentdict /CMap defineresource pop', 'end', 'end'])
             self._tounicode = ('\n'.join(lines) + '\n').encode('ascii')
         return self._tounicode
+
+    def subset(self, chars):
+        """A new face whose font program contains only these characters (plus .notdef)."""
+        wanted = {0}
+        keep_chars = []
+        for char in chars:
+            code = ord(char)
+            if code < 32 or code > 0xFFFF:
+                continue
+            gid = self.cmap.get(code, 0)
+            if not gid:
+                continue
+            wanted.add(gid)
+            keep_chars.append(code)
+        pending = list(wanted)
+        while pending:
+            gid = pending.pop()
+            for comp in _components(self.glyph_blobs[gid] if gid < len(self.glyph_blobs) else b''):
+                if comp not in wanted and comp < len(self.glyph_blobs):
+                    wanted.add(comp)
+                    pending.append(comp)
+        order = [0] + sorted(g for g in wanted if g)
+        gid_map = {old: new for new, old in enumerate(order)}
+        blobs = []
+        for old in order:
+            blob = self.glyph_blobs[old] if old < len(self.glyph_blobs) else b''
+            blobs.append(_remap_components(blob, gid_map))
+        char_map = {}
+        for code in keep_chars:
+            char_map[code] = gid_map[self.cmap[code]]
+        data = _build_ttf(self, blobs, order, char_map)
+        return Face(data=data)
+
+
+def _glyph_blobs(tables, head, nglyphs):
+    loca = tables[b'loca']
+    glyf = tables[b'glyf']
+    fmt = struct.unpack('>h', head[50:52])[0]
+    offsets = []
+    if fmt == 0:
+        count = nglyphs + 1
+        for i in range(count):
+            offsets.append(struct.unpack('>H', loca[i * 2:i * 2 + 2])[0] * 2)
+    else:
+        count = nglyphs + 1
+        for i in range(count):
+            offsets.append(struct.unpack('>I', loca[i * 4:i * 4 + 4])[0])
+    blobs = []
+    for i in range(nglyphs):
+        blobs.append(glyf[offsets[i]:offsets[i + 1]])
+    return blobs
+
+
+def _components(blob):
+    if len(blob) < 10:
+        return []
+    contours = struct.unpack('>h', blob[:2])[0]
+    if contours >= 0:
+        return []
+    found = []
+    pos = 10
+    while pos + 4 <= len(blob):
+        flags, gid = struct.unpack('>HH', blob[pos:pos + 4])
+        found.append(gid)
+        pos += 4
+        pos += 4 if flags & 1 else 2
+        if flags & 8:
+            pos += 2
+        elif flags & 64:
+            pos += 4
+        elif flags & 128:
+            pos += 8
+        if not (flags & 32):
+            break
+    return found
+
+
+def _remap_components(blob, gid_map):
+    if len(blob) < 10 or struct.unpack('>h', blob[:2])[0] >= 0:
+        return blob
+    out = bytearray(blob)
+    pos = 10
+    while pos + 4 <= len(out):
+        flags, gid = struct.unpack('>HH', out[pos:pos + 4])
+        struct.pack_into('>H', out, pos + 2, gid_map.get(gid, 0))
+        pos += 4
+        pos += 4 if flags & 1 else 2
+        if flags & 8:
+            pos += 2
+        elif flags & 64:
+            pos += 4
+        elif flags & 128:
+            pos += 8
+        if not (flags & 32):
+            break
+    return bytes(out)
+
+
+def _checksum(data):
+    padded = data + b'\x00' * ((4 - len(data) % 4) % 4)
+    total = 0
+    for i in range(0, len(padded), 4):
+        total = (total + struct.unpack('>I', padded[i:i + 4])[0]) & 0xFFFFFFFF
+    return total
+
+
+def _encode_cmap4(char_map):
+    """Format 4 cmap. char_map is unicode code -> new glyph id."""
+    codes = sorted(c for c in char_map if c <= 0xFFFF)
+    segments = [(code, code, char_map[code]) for code in codes]
+    segments.append((0xFFFF, 0xFFFF, 0))
+    seg = len(segments)
+    entry = 0
+    while (1 << (entry + 1)) <= seg:
+        entry += 1
+    search = (1 << entry) * 2
+    body = struct.pack(
+        '>HHHHHHH', 4, 16 + 8 * seg, 0, seg * 2, search, entry, seg * 2 - search)
+    body += struct.pack('>%dH' % seg, *[end for _start, end, _gid in segments])
+    body += struct.pack('>H', 0)
+    body += struct.pack('>%dH' % seg, *[start for start, _end, _gid in segments])
+    deltas = []
+    for start, _end, gid in segments:
+        delta = (gid - start) & 0xFFFF
+        if delta >= 0x8000:
+            delta -= 0x10000
+        deltas.append(delta)
+    body += struct.pack('>%dh' % seg, *deltas)
+    body += struct.pack('>%dH' % seg, *([0] * seg))
+    table = struct.pack('>HH', 0, 1) + struct.pack('>HHI', 3, 1, 12) + body
+    return table
+
+
+def _minimal_post(src):
+    # Format 3 drops the glyph-name list. Keep the metrics from the source header.
+    if src and len(src) >= 32:
+        head = bytearray(src[:32])
+        struct.pack_into('>I', head, 0, 0x00030000)
+        return bytes(head)
+    return struct.pack('>I', 0x00030000) + b'\x00' * 28
+
+
+def _build_ttf(src, blobs, order, char_map):
+    glyf = bytearray()
+    offsets = [0]
+    for blob in blobs:
+        glyf += blob
+        if len(glyf) % 2:
+            glyf += b'\x00'
+        offsets.append(len(glyf))
+    loca = b''.join(struct.pack('>I', off) for off in offsets)
+    hmtx = b''.join(
+        struct.pack('>Hh', src.advances[old] if old < len(src.advances) else 0,
+                    src.lsbs[old] if old < len(src.lsbs) else 0)
+        for old in order)
+    maxp = bytearray(src._src_tables[b'maxp'])
+    struct.pack_into('>H', maxp, 4, len(order))
+    hhea = bytearray(src._src_tables[b'hhea'])
+    struct.pack_into('>H', hhea, 34, len(order))
+    head = bytearray(src._src_tables[b'head'])
+    struct.pack_into('>I', head, 8, 0)  # checksumAdjustment
+    struct.pack_into('>h', head, 50, 1)  # long loca
+    tables = {
+        b'cmap': _encode_cmap4(char_map),
+        b'glyf': bytes(glyf),
+        b'head': bytes(head),
+        b'hhea': bytes(hhea),
+        b'hmtx': hmtx,
+        b'loca': loca,
+        b'maxp': bytes(maxp),
+        b'name': src._src_tables[b'name'],
+        b'post': _minimal_post(src._src_tables.get(b'post', b'')),
+    }
+    if b'OS/2' in src._src_tables:
+        tables[b'OS/2'] = src._src_tables[b'OS/2']
+    return _pack_sfnt(tables)
+
+
+def _pack_sfnt(tables):
+    tags = sorted(tables)
+    n = len(tags)
+    entry = 0
+    while (1 << (entry + 1)) <= n:
+        entry += 1
+    search = (1 << entry) * 16
+    header = struct.pack('>IHHHH', 0x00010000, n, search, entry, n * 16 - search)
+    directory = bytearray(n * 16)
+    offset = 12 + n * 16
+    blobs = []
+    for i, tag in enumerate(tags):
+        data = tables[tag]
+        struct.pack_into('>4sIII', directory, i * 16, tag, _checksum(data), offset, len(data))
+        blobs.append(data)
+        offset += len(data)
+        pad = (4 - len(data) % 4) % 4
+        blobs.append(b'\x00' * pad)
+        offset += pad
+    font = header + bytes(directory) + b''.join(blobs)
+    # checksumAdjustment makes the font sum to 0xB1B0AFBA. The directory still
+    # records the head checksum from before this write; viewers do not require it.
+    head_at = struct.unpack('>I', directory[tags.index(b'head') * 16 + 8:tags.index(b'head') * 16 + 12])[0]
+    adjust = (0xB1B0AFBA - _checksum(font)) & 0xFFFFFFFF
+    font = bytearray(font)
+    struct.pack_into('>I', font, head_at + 8, adjust)
+    return bytes(font)
 
 
 def face(bold=False):

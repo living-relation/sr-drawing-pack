@@ -5,6 +5,7 @@ from .canvas import (
     BOM_COLS,
     PW,
     PH,
+    BOM_TEXT_MM,
     bom_header_height,
     bom_row_cells,
     bom_row_height,
@@ -252,7 +253,7 @@ def _bom_text_h(el, first, continued):
         return float(el['text_h'])
     if continued and first is not None and first.get('text_h') is not None:
         return float(first['text_h'])
-    return 2.0
+    return BOM_TEXT_MM
 
 
 def _bom_colw(el, first, continued):

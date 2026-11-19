@@ -6,16 +6,21 @@ Characters the font does not have are reported, not silently replaced.
 import math
 
 from .canvas import STY
-from .font import cap_ratio, face
+from .font import face
 
 MM = 72.0 / 25.4
 # Light enough that table text stays readable. Drawn before the sheet content.
 WATERMARK_GRAY = 0.90
 
 
+# dwg.py draws text at fontsize = h * (72/25.4) / 0.72. That is the point size
+# in the filed FH-200 PDF (BOM h=2.0 mm is 7.874 pt).
+ENGINE_CAP = 0.72
+
+
 def font_pt(h_mm, bold=False):
-    """Point size whose cap height is h_mm."""
-    return h_mm * MM / cap_ratio(bold)
+    """Point size for a text height h_mm, using the drawing engine's 0.72 factor."""
+    return float(h_mm) * MM / ENGINE_CAP
 
 
 def text_width_mm(text, h_mm, bold=False):
@@ -27,23 +32,24 @@ def _cap_mm(h_mm, bold=False):
     return float(h_mm)
 
 
-def _text_op(x_mm, y_mm, text, h_mm, bold, rot, missing):
-    loaded = face(bold)
+def _text_op(x_mm, y_mm, text, h_mm, bold, rot, missing, faces):
+    loaded = faces[bool(bold)]
     ids, miss = loaded.glyphs(text)
     missing.extend(miss)
     size = font_pt(h_mm, bold)
     face_name = 'F2' if bold else 'F1'
     hexbody = ''.join('%04X' % gid for gid in ids)
     shown = '<%s> Tj' % hexbody
+    size_s = '%.5f' % size
     if not rot:
-        return 'BT /%s %.2f Tf %.3f %.3f Td %s ET' % (face_name, size, x_mm * MM, y_mm * MM, shown)
+        return 'BT /%s %s Tf %.3f %.3f Td %s ET' % (face_name, size_s, x_mm * MM, y_mm * MM, shown)
     ang = math.radians(rot)
     c, s = math.cos(ang), math.sin(ang)
-    return 'BT /%s %.2f Tf %.4f %.4f %.4f %.4f %.3f %.3f Tm %s ET' % (
-        face_name, size, c, s, -s, c, x_mm * MM, y_mm * MM, shown)
+    return 'BT /%s %s Tf %.4f %.4f %.4f %.4f %.3f %.3f Tm %s ET' % (
+        face_name, size_s, c, s, -s, c, x_mm * MM, y_mm * MM, shown)
 
 
-def _draw_text(ops, x, y, text, h, ha, va, rot, bold, missing):
+def _draw_text(ops, x, y, text, h, ha, va, rot, bold, missing, faces):
     lines = str(text).split('\n')
     pitch = h * 1.6
     cap = _cap_mm(h, bold)
@@ -66,10 +72,10 @@ def _draw_text(ops, x, y, text, h, ha, va, rot, bold, missing):
         else:
             lx = x - tw / 2.0
         ly = base0 - i * pitch
-        ops.append(_text_op(lx, ly, line, h, bold, rot or 0, missing))
+        ops.append(_text_op(lx, ly, line, h, bold, rot or 0, missing, faces))
 
 
-def _watermark(ops, text, h, cx, cy, angle, missing):
+def _watermark(ops, text, h, cx, cy, angle, missing, faces):
     tw = text_width_mm(text, h, True)
     cap = _cap_mm(h, True)
     ang = math.radians(angle)
@@ -77,7 +83,7 @@ def _watermark(ops, text, h, cx, cy, angle, missing):
     x = cx - c * (tw / 2.0) + s * (cap / 2.0)
     y = cy - s * (tw / 2.0) - c * (cap / 2.0)
     ops.append('q %.2f g' % WATERMARK_GRAY)
-    ops.append(_text_op(x, y, text, h, True, angle, missing))
+    ops.append(_text_op(x, y, text, h, True, angle, missing, faces))
     ops.append('Q')
 
 
@@ -92,16 +98,30 @@ def _poly(pts, close, op):
     return ' '.join(parts)
 
 
-def page_stream(sheet, missing=None):
+def _used_chars(sheets):
+    regular, bold = set(), set()
+    for sheet in sheets:
+        for it in sheet.items:
+            if it[0] == 'tx':
+                bucket = bold if it[8] else regular
+                bucket.update(ch for ch in it[3] if ord(ch) >= 32)
+            elif it[0] == 'wm':
+                bold.update(ch for ch in it[3] if ord(ch) >= 32)
+    return regular, bold
+
+
+def page_stream(sheet, missing=None, faces=None):
     """Content stream bytes for one sheet. Missing characters are appended to `missing`."""
     if missing is None:
         missing = []
+    if faces is None:
+        faces = {False: face(False), True: face(True)}
     ops = ['0 g 0 G 1 J 1 j']
     for it in sheet.items:
         if it[0] != 'wm':
             continue
         _, x, y, text, h, ang = it
-        _watermark(ops, text, h, x, y, ang, missing)
+        _watermark(ops, text, h, x, y, ang, missing, faces)
     ops.append('0 g 0 G')
     for it in sheet.items:
         kind = it[0]
@@ -135,7 +155,7 @@ def page_stream(sheet, missing=None):
                     lx = x - tw / 2.0
                 ops.append('q 1 g %.3f %.3f %.3f %.3f re f Q' % (
                     (lx - 0.4) * MM, (y - 0.3) * MM, (tw + 0.8) * MM, (cap + 0.4) * MM))
-            _draw_text(ops, x, y, text, h, ha, va, rot, bold, missing)
+            _draw_text(ops, x, y, text, h, ha, va, rot, bold, missing, faces)
     return ('\n'.join(ops) + '\n').encode('ascii'), missing
 
 
@@ -159,16 +179,24 @@ def _font_objects(doc, loaded, base_name):
 
 
 def write_pdf(sheets, path):
-    """Write sheets to a PDF file. Returns characters the font could not draw."""
+    """Write sheets to a PDF file. Returns characters the font could not draw.
+
+    Each face is subset to the glyphs this PDF uses.
+    """
+    regular_chars, bold_chars = _used_chars(sheets)
+    faces = {
+        False: face(False).subset(regular_chars),
+        True: face(True).subset(bold_chars),
+    }
     doc = _Doc()
-    regular = _font_objects(doc, face(False), 'DejaVuSans')
-    bold = _font_objects(doc, face(True), 'DejaVuSans-Bold')
+    regular = _font_objects(doc, faces[False], 'DejaVuSans')
+    bold = _font_objects(doc, faces[True], 'DejaVuSans-Bold')
     missing = []
     page_ids = []
     # Parent id is assigned after the page objects. Reserve it by counting.
     parent = len(doc.objs) + 2 * len(sheets) + 1
     for sh in sheets:
-        data, _miss = page_stream(sh, missing)
+        data, _miss = page_stream(sh, missing, faces)
         cid = doc.add(lambda n, data=data: _stream(n, data))
         w_mm, h_mm = sh.page_size
         pid = doc.add(lambda n, cid=cid, w=w_mm * MM, h=h_mm * MM: _page(
