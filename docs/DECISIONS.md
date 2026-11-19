@@ -146,3 +146,11 @@ Entry format: ID, Status, Context, Decision, Rejected, Supersedes, Reopen if.
 - Rejected: DWG through a converter.
 - Supersedes: the DWG part of ADR-004
 - Reopen if: a customer or shop requires DWG.
+
+## ADR-019: The PDM issues part and assembly numbers (2026-11-19)
+- Status: Accepted
+- Context: Numbers must be unique and simple, and serve as both drawing number and model number. Two PCs each generating the "next" number could hand out the same one.
+- Decision: The PDM hands out every part and assembly number from its single counter. The app never generates a number; it uses the one it is given.
+- Rejected: the app generating numbers; a shared counter file; hand-typed numbers.
+- Supersedes: none
+- Reopen if: the app must work before the PDM can issue numbers.
