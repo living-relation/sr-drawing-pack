@@ -5,7 +5,7 @@ This is the only agent rules file in the repo. Do not add a CLAUDE.md or any oth
 ## Read order
 1. This file.
 2. `docs/DECISIONS.md` (why). Never skipped.
-3. `docs/SPEC.md` (milestones and done criteria), then `docs/REQUIREMENTS.md` (feature detail).
+3. `docs/SPEC.md` (milestones, done criteria and requirements).
 4. Live state in the store (see the role table). Store unreachable (PC offline, cloud session): work from committed docs.
 
 ## Role table
@@ -24,8 +24,14 @@ The store path comes from `python <workstation>/scripts/state/state_paths.py`. N
 handoff notes in this repo.
 
 ## Map
-- `docs/PLAN.md`: phases and coordination model. `docs/RESEARCH.md`: test evidence. `docs/REFERENCES.md`: read-only sources and licenses. `docs/DATA-CARD.md`: draft data card schema.
+- `docs/RESEARCH.md`: test evidence. `docs/REFERENCES.md`: read-only sources and licenses. `docs/DATA-CARD.md`: draft data card schema.
 - `research/fusion-tests/`: one-off test scripts. They need the `SRDP_ROOT` environment variable (path to your clone).
+
+## Coordination
+- One coordinator chat owns the root STATE. Workers are dispatched from it, one branch each, each with
+  its own `STATE-<slug>.md` (coordinator-kit).
+- Every repo change goes through safe-repo-preflight: branch, checks, PR.
+- Before pushing a follow-up commit to a branch, check its PR is still open.
 
 ## Public repo
 - Never commit secrets, tokens, personal or machine paths (drive letters, user names), or vendor CAD
