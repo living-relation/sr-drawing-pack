@@ -46,3 +46,36 @@ untested. Test scripts: `research/fusion-tests/` (paths were rewritten after the
 
 - A recursive scan of the whole cloud hub from a test script (`t1.py`) crashed Fusion once. It was
   relaunched; no existing files were changed. Do not walk the hub recursively.
+
+## How PDM systems take in files (web research, 2026-11-20)
+
+Context for ADR-012, ADR-014 and ADR-022. Not tested; from vendor docs.
+
+| System | How it gets its data |
+|---|---|
+| SOLIDWORKS PDM | Data card variables are mapped to named properties stored inside the file, two-way. Its PDF plug-in reads and writes PDF properties (Title, Author, Subject, Keywords and custom ones such as Part Number, Description). |
+| Autodesk Vault | Each property has a mapping direction: File to Vault, Vault to File, or bidirectional. |
+| Fusion Manage | Design and drawing each get an item number. A revision is assigned at release (Quick Release or Release with Change Order). Pre-production revs are numbers, production revs are letters. One change order can carry several design and drawing items. |
+
+Common pattern: the metadata rides inside the files as named properties; the PDM reads it at import,
+owns the revision and lifecycle, and links model and drawing by a shared number.
+
+Sources: help.solidworks.com (PDM variable mapping, PDF plug-in), help.autodesk.com (Vault "Map
+Properties", Fusion Manage "Change orders" and "Workflow and lifecycle management").
+
+## Spark Robotic engineering rules outside this app (Daniel, 2026-11-19)
+
+Background on where the drawings are used. The PDM and Fusion handle these, not this app (ADR-012).
+
+- Each standard part has its own model in the Standard Components Library and can go in any assembly.
+  An update shows in every assembly that uses it, the next time that assembly opens.
+- Custom manufactured and 3D printed parts live in their own folder beside the assembly that owns
+  them. Another assembly copies them; it never uses them directly.
+- No part, subassembly or component exists only inside an assembly. If the part model can't be opened
+  from the assembly, it's wrong. Fasteners placed by the SR-Fastener add-in are the exception.
+- Fasteners from SR-Fastener carry simple, non-vendor part numbers that give size and length. Real
+  vendor numbers are used only for fasteners downloaded because the add-in lacked them; those models
+  go in Standard Components.
+- Model and drawing share one filename, `<part number> <part description>`; only the extension differs.
+- Each new revision replaces the last one. The PDM keeps a snapshot of every model and drawing
+  revision; old snapshots are visible to engineers only.
