@@ -79,3 +79,40 @@ Background on where the drawings are used. The PDM and Fusion handle these, not 
 - Model and drawing share one filename, `<part number> <part description>`; only the extension differs.
 - Each new revision replaces the last one. The PDM keeps a snapshot of every model and drawing
   revision; old snapshots are visible to engineers only.
+
+## Spike A live results: native Fusion drawing through the API (2026-11-21)
+
+Tested on DansPC, Fusion 2706.1.17, through Fusion's built-in MCP (script tool). Scratch design
+`SRDP_SCRATCH_spikeA` (80 x 50 x 10 mm plate, four 6 mm through holes, one 20 x 20 x 4 mm pocket on
+the bottom face) in the `_drawtest_tmp` folder. Scratch design and drawing were closed without saving
+and deleted from the cloud afterwards. Every `adsk.drawing` call used is a Preview feature.
+
+| Requirement group | Result | Evidence |
+|---|---|---|
+| Saved orientations (ADR-021) | PASS | `Design.namedViews` reads TOP, FRONT, RIGHT, HOME with their cameras; custom views are listed by `count` / `item`. |
+| Create a drawing | PASS, automatic mode only | `DrawingManager.createDrawing` took 33 s and returns a cloud DataFile; the drawing must then be opened. Manual mode fails: "requires a template with view placeholder information". Opening the result leaves the Edit Auto Dimensions dialog active; `terminateActiveCommand` clears it. |
+| Base views | PASS | `Views.add` with any of 10 orientations (6 orthographic, 4 iso). The placement point is in millimetres on this drawing, although the docs say centimetres. |
+| Projected views | Read only | Automatic creation made two. The API has no call to create one. Their `orientation`, `scaleValue` and `style` raise errors; their `viewCurves` read fine. |
+| Section, detail, break views | FAIL | No create call. `ViewTypes` only lets a script recognise them. |
+| View linework | PARTIAL | `View.viewCurves` returns every edge as line / circle / arc with sheet coordinates in mm (top view 12 curves, front 11, iso 40). Hidden edges are included with no flag to tell them from visible ones, and the count does not change with the view style. |
+| View style | PARTIAL | `View.style` can be set after creation. The style set on `BaseViewInput.viewParameters` was ignored (asked for visible only, got visible + hidden). |
+| Revision table | PASS | `Sheet.addRevisionTable`, then `RevisionTable.addRevision` with free-text rev, description, date, approved. Rev text is not validated ("AA" accepted). The title block Rev field followed the last row. |
+| Title block values | FAIL | `TitleBlock.getAttributes` lists 15 tags with positions (REV, DRAWING_NUMBER, TITLE_1 and so on). `setAttributes` returned false for a custom tag and for SCALE. No call sets a tag's value. |
+| Add a sheet | PASS | `Sheets.add`. The new sheet got the same full title block; a simpler continuation block was not tested (needs a template). |
+| Custom table (BOM, thumbnails) | FAIL | `customTables.add` returns a table but `count` stays 0, `setCellData` returns false, and nothing shows in the PDF. |
+| Image on sheet | PASS | `Images.insert` from a PNG path; it shows in the PDF. |
+| Sketch linework on sheet | Not confirmed | `sketches.add` and `lines.add` succeed, but the line was not seen in the PDF. |
+| Balloons, parts list | FAIL | No class for either in `adsk.drawing` (only `PartsListSettings`). |
+| PDF export | PASS | `DrawingExportManager` PDF: both sheets, views, dimensions, revision table, image. |
+| DXF export | FAIL for views | The API's DXF export holds the border, title block and table blocks only: no view linework, no dimensions. `HIDDEN` and `CENTER` linetypes are defined but unused. (The 2026-11-19 DXF with dimensions came from a different export route.) |
+
+What this means for M1:
+
+- A native Fusion drawing cannot carry the target style through the API today: no title block
+  values, no working custom table, no balloons or parts list, no section or detail views.
+- Fusion can still serve as the view generator for a custom editor: base views in any standard
+  orientation, with exact 2D edges readable through `viewCurves`. The gap is telling hidden edges
+  from visible ones. Options to test next: compare each curve against the model's faces for
+  visibility, or read line styles from the PDF export.
+- Cost of that route: about 30 s and a cloud save per drawing, plus a Preview API that Autodesk says
+  not to ship.
