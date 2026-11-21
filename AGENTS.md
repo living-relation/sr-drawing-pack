@@ -37,13 +37,29 @@ handoff notes in this repo.
   Never skip a hook.
 
 ## Scope
-- This app only creates drawings and exports them. Approval, file states, visibility, check-in/out and
-  numbering authority belong to the PDM (ADR-012). Flag anything that drifts past that before building it.
+- This repo is only the drawing generator: make rule-following drawings, give the editing features, and
+  export the needed file types (ADR-012, ADR-020).
+- Vault, numbering, approval workflow, check-in/out, rev stamping and fab-floor viewing belong to the
+  separate sparkCAD / PDM app. Do not plan or build those here. Expose clean hooks instead, for example
+  "re-export with rev X filled in".
+- Flag anything that drifts past that before building it.
+
+## Who owns what
+- This repo owns requirements, rules, decisions and the plan.
+- sr-drawing-pdf proves out the editor core (sheet engine, template, title block, BOM table, subset-font
+  PDF output). Treat its results as evidence. Do not duplicate that spike here.
+
+## Skills to load (declared, not committed)
+- workstation-core: session-start, safe-repo-preflight, state-closeout, pr-closeout, coordinator-kit.
+- handbuilt-cad: primary-source-spec-check. Verify claims against official docs and label anything unverified.
 
 ## Live Fusion tests
 - Never walk the Fusion cloud hub recursively. A recursive scan crashed Fusion once.
 - Never close, save over or change the user's open documents. Open a scratch document whose name
   starts with `SRDP_SCRATCH`, and close only that.
+- Never call sheets or views APIs on a drawing that has no model reference. It hung Fusion once.
+- `execute_python` runs on Fusion's main thread: a hang kills the MCP. Keep calls short.
+- Take the workstation fusion-lock with a unique holder name before any live test, and release it after.
 - Do not start or stop the workstation workers.
 - Nothing is installed into Fusion's AddIns folder until Daniel approves an iteration. When approved,
   install by a directory junction from AddIns to the add-in folder in the clone (same as sr-bom,

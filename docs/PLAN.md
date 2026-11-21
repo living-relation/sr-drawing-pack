@@ -47,17 +47,13 @@ add and remove sheets, linked BOM copies, per-view auto annotate. The decision r
 ## Phase 3 and later (outline only)
 
 - Auto annotation set: item numbers, hole table, callouts, feature dims, weld marks, center lines and marks.
-- Export check boxes: PDF, DXF, DWG. Fix or document the inch-unit quirk in DXF.
+- Export check boxes: PDF and DXF (ADR-018). Fix or document the inch-unit quirk in DXF.
 - Port to the Spark Robotic team account on the work PC.
 
 ## Open questions
 
-| ID | Question | Blocks |
-|---|---|---|
-| Q1 | Editing surface: native Fusion drawing, custom editor, or external 2D CAD? | Phase 2 onward |
-| Q2 | Answered: personal now (living-relation), hand to Spark Robotic later. License still open. | 0.5 |
-| Q3 | Commit skills into this repo, or only declare them in AGENTS.md? | 0.6 |
-| Q4 | "Click thumbnail to expand": where does this happen (Fusion palette, the editor, the PDF)? | Thumbnail design |
+Answered questions are in [DECISIONS.md](DECISIONS.md). Still open: the editing surface (ADR-001, ADR-016)
+and how a picked view becomes 2D hidden-line geometry (ADR-021). Live questions are tracked in the store's STATE.
 
 ## Test evidence so far
 
