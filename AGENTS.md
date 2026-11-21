@@ -26,6 +26,7 @@ handoff notes in this repo.
 ## Map
 - `docs/RESEARCH.md`: test evidence. `docs/REFERENCES.md`: read-only sources and licenses. `docs/DATA-CARD.md`: draft data card schema.
 - `research/fusion-tests/`: one-off test scripts. They need the `SRDP_ROOT` environment variable (path to your clone).
+- `research/spike-b/`: spike B scripts. `views_row.py` needs `HBCAD_ROOT` (path to a handbuilt-cad clone) and that clone's Python.
 
 ## Coordination
 - One coordinator chat owns the root STATE. Workers are dispatched from it, one branch each, each with
