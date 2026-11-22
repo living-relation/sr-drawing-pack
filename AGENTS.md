@@ -29,6 +29,7 @@ handoff notes in this repo.
 - `research/spike-b/`: spike B scripts. `views_row.py` and `styled_sheet.py` need `HBCAD_ROOT` (path to a handbuilt-cad clone) and that clone's Python.
 - `research/editor-slice/`: first clickable editor screen (local web page + server). `research/assembly-test/`: test assembly and its drawing package. Each has a README.
 - `research/fusion-data/`: Fusion script that exports a STEP and a data file together (ADR-028). Needs `SRDP_FUSION_DATA_OUT`.
+- `research/thumbnails/`: BOM thumbnails from a STEP with the F3D viewer. Needs `F3D_EXE` (path to f3d.exe).
 
 ## Coordination
 - One coordinator chat owns the root STATE. Workers are dispatched from it, one branch each, each with

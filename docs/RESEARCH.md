@@ -346,3 +346,22 @@ For the PDM project:
 - Nothing else in the `.f3d` is readable without Fusion. BOM and hole data must come from the data file.
 - F3D's command line can make the STEP thumbnails; its browser build may suit an in-browser STEP viewer,
   after a test that the build reads STEP.
+
+## BOM thumbnails with F3D (2026-11-22)
+
+Daniel chose to try the F3D viewer's command line for BOM thumbnails (ADR-003). Script:
+`research/thumbnails/bom_thumbnails.py`, run on the test assembly `SRDP-T-100`. F3D 4.0.1, portable copy.
+Output stays in `research/_local/out/thumbnails/`.
+
+| Item | Result | Evidence |
+|---|---|---|
+| One shaded picture per BOM row | PASS | 8 rows, including the sub-assembly and its children. |
+| Speed | PASS | 0.44 to 0.48 s each, 3.6 s for the 8 rows (420 x 420 pixels). |
+| Part shown the way it was modelled | PASS | The placement is undone first, so a screw fitted upside down still shows head up. |
+| Clean picture | PASS | No background, grid, axis or file name; edges on; same trimetric direction as the engine's pictorial view. |
+| BOM page with pictures | PASS | Indented rows with picture, item, quantity, part number, description, material. |
+| Colour or material look | Not shown | The test STEP carries no colours, so every part is grey. A STEP from Fusion may carry them; not tested. |
+| Picture inside the drawing sheet | NOT DONE | The engine's sheet has no image item. The page here is a separate matplotlib layout. |
+
+- A copied or re-wrapped shape is needed before export: build123d refused to write a STEP for a node taken straight from the imported tree.
+- F3D becomes a tool the app needs on each PC (about 70 MB unpacked, BSD 3-Clause). The alternative is a picture from Fusion at export time.
