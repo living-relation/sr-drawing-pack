@@ -7,6 +7,6 @@
 - This is the SR Drawing PDF Fusion add-in (not an add-in). Keep the add-in folder
   (`SRDrawingPDF/`) self-contained so a junction into Fusion's Scripts folder works.
 - Do not write assembly instructions such as tightening torque or threadlocker notes.
-- Live Fusion tests: take the machine's Fusion lock first, and never touch other people's open documents.
+- Live Fusion tests: never touch other people's open documents.
   The smoke test closes its own design without saving.
 - This is the only agent rules file in the repo. Do not add a CLAUDE.md or any other agent file; put rules here.
