@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SR Drawing Pack - editor slice</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; font: 13px/1.3 "Segoe UI", Arial, sans-serif; color: #1c2430; background: #dfe3e8; }
+  body { display: flex; }
+  #panel { width: 190px; flex: none; background: #f4f5f7; border-right: 1px solid #b6bcc6; padding: 8px; overflow-y: auto; }
+  #panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; margin: 2px 0 6px; color: #51606f; }
+  #panel p { font-size: 11px; color: #51606f; margin: 0 0 8px; }
+  .pv { display: flex; align-items: center; gap: 8px; padding: 4px; margin-bottom: 4px; background: #fff; border: 1px solid #c5cad3;
+        border-radius: 3px; cursor: grab; user-select: none; }
+  .pv:hover { border-color: #1667c5; }
+  .pv svg { width: 64px; height: 44px; flex: none; }
+  .pv span { text-transform: capitalize; }
+  #main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  #bar, #tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 8px; background: #f4f5f7; border-bottom: 1px solid #b6bcc6; }
+  #bar .sep { width: 1px; height: 22px; background: #b6bcc6; margin: 0 4px; }
+  button, select { font: inherit; padding: 3px 9px; border: 1px solid #98a1ae; border-radius: 3px; background: #fff; cursor: pointer; }
+  button:hover:not(:disabled) { border-color: #1667c5; }
+  button:disabled { color: #9aa3ad; cursor: default; background: #eceef1; }
+  #tabs button.on { background: #1667c5; border-color: #1667c5; color: #fff; }
+  #stage { flex: 1; min-height: 0; padding: 12px; display: flex; }
+  #sheet { flex: 1; min-width: 0; min-height: 0; touch-action: none; }
+  #sheet.drop { outline: 3px solid #1667c5; }
+  #status { padding: 4px 8px; background: #f4f5f7; border-top: 1px solid #b6bcc6; min-height: 24px; color: #51606f; }
+  #status.err { color: #b3261e; font-weight: 600; }
+  .frame { fill: none; stroke: #000; }
+  .ghost { fill: #f1f3f6; stroke: #98a1ae; stroke-width: .3; stroke-dasharray: 2 1.5; }
+  .ghost-t { font-size: 3px; fill: #7a8593; text-anchor: middle; }
+  .view .hit { fill: transparent; stroke: none; cursor: move; }
+  .view:hover .hit { stroke: #9cc2ee; stroke-width: .4; }
+  .view.sel .hit { stroke: #1667c5; stroke-width: .5; stroke-dasharray: 2 1; }
+  .view .geo { fill: none; stroke: #000; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+  .view text { font-size: 4.8px; font-weight: 700; text-anchor: middle; pointer-events: none; }
+  .link { stroke: #1667c5; stroke-width: .25; stroke-dasharray: 1.5 1.5; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="panel">
+  <h2>Views</h2>
+  <p>Drag a view onto the sheet. Double-click drops it in the middle.</p>
+  <div id="views"></div>
+</div>
+<div id="main">
+  <div id="bar">
+    <span>Projected view:</span>
+    <button id="p-left" data-side="left">Left</button><button id="p-right" data-side="right">Right</button>
+    <button id="p-top" data-side="top">Top</button><button id="p-bottom" data-side="bottom">Bottom</button>
+    <span class="sep"></span>
+    <button id="break">Break link</button><button id="delete">Delete view</button>
+    <span class="sep"></span>
+    <label>Sheet scale <select id="scale"></select></label>
+    <span class="sep"></span>
+    <button id="undo">Undo</button><button id="save">Save</button><button id="export">Export PDF</button>
+  </div>
+  <div id="tabs"></div>
+  <div id="stage"><svg id="sheet" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg></div>
+  <div id="status">Loading...</div>
+</div>
+<script src="editor.js"></script>
+</body>
+</html>
