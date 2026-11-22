@@ -32,7 +32,7 @@ Load the `SRDrawingPDF` folder into Fusion as described in [Install](install.md)
 python tools/check.py
 ```
 
-`dev/fusion_smoke.py` is a live test. Take the machine's Fusion lock first. It opens a new scratch design, loads the add-in module, and checks that `run`, `setup_drawing` and `add_dimensions` are present, then closes the design without saving. A full PDF export still needs the New Drawing confirmation dialog, so the smoke test does not click through that dialog. Your open documents are not touched.
+`dev/fusion_smoke.py` is a live test. It opens a new scratch design, loads the add-in module, and checks that `run`, `setup_drawing` and `add_dimensions` are present, then closes the design without saving. A full PDF export still needs the New Drawing confirmation dialog, so the smoke test does not click through that dialog. Your open documents are not touched.
 
 `run()` also accepts an optional `pdf_path` so a test can skip the Save dialog. The normal Scripts Run still shows the Save dialog.
 
