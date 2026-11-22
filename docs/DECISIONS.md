@@ -218,3 +218,11 @@ Entry format: ID, Status, Context, Decision, Rejected, Supersedes, Reopen if.
 - Rejected: one tolerance for everything; hole tolerances fixed by the app.
 - Supersedes: none
 - Reopen if: none. Open: whether one hole or one group of holes can carry its own tolerance, different from the file-wide hole tolerance.
+
+## ADR-028: STEP plus a Fusion data file, exported together (2026-11-22)
+- Status: Accepted
+- Context: A STEP gives the engine exact geometry and the component tree, but not the BOM description or material, and not which holes are tapped or how deep the thread is. Engineers who make drawings always have Fusion. An `.f3d` cannot be read outside Autodesk software.
+- Decision: When a drawing is made, the add-in exports the STEP and a data file from the open Fusion design in the same step. The engine draws views from the STEP and takes BOM fields and hole / thread definitions from the data file. The `.f3d` is never read by the engine. Views come from the STEP with the engine (spike B), which settles the open point of ADR-021.
+- Rejected: STEP alone (BOM and thread data missing); reading the `.f3d` directly (no open reader); Fusion's drawing engine for views (spike A).
+- Supersedes: the open point of ADR-021 (how a view becomes 2D geometry). Works with ADR-002 (the spec file still overrides Fusion).
+- Reopen if: a real hub design shows data the export cannot reach. Evidence: docs/RESEARCH.md, "Fusion data file with the STEP".

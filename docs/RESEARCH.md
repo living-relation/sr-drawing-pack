@@ -292,3 +292,57 @@ Test assembly `SRDP-T-100` (base plate, cover sub-assembly with handle, stop blo
   a spec file.
 - Not verified: a Fusion round trip of this assembly. The STEP written by build123d is AP214; handbuilt-cad
   asks for AP242. Counterbore size, blind depths, plate sizes and materials are test values, not from a standard.
+
+## Fusion data file with the STEP, and the F3D viewer (2026-11-22)
+
+Tested on DansPC, Fusion 2706.1.17 through Fusion's built-in MCP, and F3D 4.0.1 (portable release,
+unpacked in a scratch folder, not installed). Script: `research/fusion-data/export_step_and_data.py`.
+Outputs stay in `research/_local/out/fusion-data/`.
+
+### STEP plus a data file, exported together (ADR-028)
+
+A scratch design with two components (a base plate with tapped holes, a cover plate used twice), part
+numbers, descriptions and a material. One script wrote the STEP, an f3d and a JSON data file, then
+closed the design without saving.
+
+| Item | Result | Evidence |
+|---|---|---|
+| STEP export | PASS | 0.10 s. Read back: 3 solids, tree `Base_Plate`, `Cover_Plate` x2. |
+| f3d export | PASS | 0.19 s, `createFusionArchiveExportOptions`. |
+| BOM fields from Fusion | PASS | Part number, description, material and quantity per component (cover plate qty 2). |
+| Tapped through hole | PASS | `M5x0.8`, class `6H`, tap drill 4.2, through = true, thread length 10 (Fusion's default; not full length unless set). |
+| Tapped blind hole | PASS | `M4x0.7`, class `6H`, drill 3.3, hole depth 10, thread length 8. |
+| Plain hole | PASS | Diameter 5.5, through, tap type `simple`. |
+| Hole position and direction | PASS | Position and axis per hole, in the component's own coordinates. |
+| Holes listed per component | NEEDS CARE | The base plate's hole list also returned the cover plate's four holes. Filter holes by the body they cut before use. |
+| STEP names against the data file | PASS, by name | STEP has `Base_Plate`, the data file has `Base Plate` (spaces become underscores on import). Match on a cleaned name or on order; the part number is not in the STEP. |
+
+- This closes the two gaps from the assembly test: BOM description and material, and which holes are tapped.
+- Thread data exists only for holes made with Fusion's Hole or Thread tools. A plain extruded cut has none.
+- Not tested: a real design from the hub, sub-assemblies, linked (external) components, counterbores, saved views in the data file (the scratch design had none).
+
+### F3D viewer (f3d.app, Daniel's fork cloned to the active projects folder)
+
+| Item | Result | Evidence |
+|---|---|---|
+| Open a Fusion `.f3d` | FAIL | "is of an unknown format". F3D the viewer and `.f3d` the Fusion archive only share a name. |
+| Open our STEP | PASS | Assembly rendered to PNG in under 1 s from the command line. |
+| Clean thumbnail from a STEP | PASS | 512 x 512, no background, grid, axis or file name, edges on: 0.45 s. |
+| Reader for Fusion `.f3d` in the fork | Not practical | The `.f3d` is a zip (Zstandard) holding Autodesk's own solid format (`.smb`, `.smbh`). No open reader exists to build on. |
+
+What is useful as it ships, with no change to the fork:
+
+- Thumbnails. The command line makes a shaded picture of any STEP in about half a second. That fits
+  BOM thumbnails (ADR-003) and data-card pictures in the PDM.
+- Free STEP viewer for people without Fusion. It also has a Windows Explorer thumbnail extension
+  (`winshellext/`), Python bindings (`python/`) and a browser build (`webassembly/`); none of those three was tested.
+- Licence: BSD 3-Clause.
+
+For the PDM project:
+
+- A Fusion `.f3d` already holds a preview picture: `Previews/small.png` and `Previews/big.png` inside
+  the zip. Windows `tar -xf` unpacks it; Python's `zipfile` cannot (Zstandard). So the PDM can show a
+  picture of an `.f3d` without Fusion.
+- Nothing else in the `.f3d` is readable without Fusion. BOM and hole data must come from the data file.
+- F3D's command line can make the STEP thumbnails; its browser build may suit an in-browser STEP viewer,
+  after a test that the build reads STEP.
