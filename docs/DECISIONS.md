@@ -202,3 +202,19 @@ Entry format: ID, Status, Context, Decision, Rejected, Supersedes, Reopen if.
 - Rejected: hidden lines on by default.
 - Supersedes: none
 - Reopen if: Daniel asks for hidden lines on a view. Open: whether the editor offers a per-view "show hidden" switch that is off by default.
+
+## ADR-026: View labels and scale (2026-11-22)
+- Status: Accepted. Section view labels to confirm.
+- Context: The test sheets put a label, a scale or a group label under the views. Daniel set the rule.
+- Decision: The drawing template sets one scale for the sheet, shown in the title block. A view at the sheet scale gets no scale label. Default views (front, top, right, left, back, bottom, trimetric, isometric and the like) get no view label. A view gets a subtitle only when it is placed at a different scale or the user wants it labelled. Detail views are labelled with their letter and scale.
+- Rejected: a label under every view; one group label per row of views; a `TRIMETRIC VIEW` label by default.
+- Supersedes: none in this file. It replaces the group-label and pictorial-label lines of the 2026-11-22 style note.
+- Reopen if: none. Open: section views are assumed to keep their letter label (`SECTION A-A`), like details.
+
+## ADR-027: Tolerances on dimensions and holes (2026-11-22)
+- Status: Accepted. Per-hole overrides are open.
+- Context: The title block carries one general tolerance block. Holes usually need a tighter or different tolerance, depending on their purpose.
+- Decision: The title block tolerance applies unless a dimension says otherwise. The engineer can set a separate tolerance for hole positions and hole sizes; it applies to all holes in the file and is called out in the hole annotation. Every dimension the user adds has a tolerance option.
+- Rejected: one tolerance for everything; hole tolerances fixed by the app.
+- Supersedes: none
+- Reopen if: none. Open: whether one hole or one group of holes can carry its own tolerance, different from the file-wide hole tolerance.
