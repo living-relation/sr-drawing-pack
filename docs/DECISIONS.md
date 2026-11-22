@@ -186,3 +186,19 @@ Entry format: ID, Status, Context, Decision, Rejected, Supersedes, Reopen if.
 - Rejected: committed skill copies; expand in a Fusion palette or in the PDF.
 - Supersedes: none
 - Reopen if: Spark Robotic needs a different license at hand-over.
+
+## ADR-024: Editing surface is a custom editor, worked as a hybrid (2026-11-22)
+- Status: Accepted. Where the editor runs and how views are made are open.
+- Context: Spike A showed a native Fusion drawing cannot carry the house style through the API. Spike B showed the handbuilt-cad engine can make the views and sheet from STEP (docs/RESEARCH.md). Daniel chose a custom editor on 2026-11-20 and set how it works on 2026-11-22.
+- Decision: Build our own editor, using Fusion's API as a toolbox where it helps. At creation the user picks the style, sheets, sheet size, default views and an auto-dimension scheme, and the app generates most of the drawing: default views placed, automatic dimensions and automatic annotation. The engineer then has full control over everything already on the sheet, and adds sheets and detail views as needed. The editor has built-in agent help or automation for when the engineer wants help while editing.
+- Rejected: a native Fusion drawing as the editing surface; fully automatic output with no editing.
+- Supersedes: the "Under review" status of ADR-001. Closes spikes A and B of ADR-016; spike C has not been run.
+- Reopen if: the editor slice shows the editor screen cannot be built at a reasonable cost. Open: a panel inside Fusion or a separate window; views from STEP with the engine (spike B evidence) or another route.
+
+## ADR-025: Visible edges only (2026-11-22)
+- Status: Accepted. A per-view switch is open.
+- Context: The first spike B sheet drew hidden lines dashed. Daniel's review asked for visible edges only.
+- Decision: Views show visible edges only: no hidden lines in any view, including the pictorial. A hidden feature is shown with a section or a detail.
+- Rejected: hidden lines on by default.
+- Supersedes: none
+- Reopen if: Daniel asks for hidden lines on a view. Open: whether the editor offers a per-view "show hidden" switch that is off by default.
