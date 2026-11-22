@@ -200,3 +200,35 @@ The M3 annotation set is on top of that.
   views. Fusion's drawing engine is not needed for views.
 - A custom editor is buildable. The view geometry, the sheet parts and the rules are proven; the cost
   is the editor screen and annotations.
+
+## Spike B styled sheet: the house drawing rules on the test plate (2026-11-22)
+
+Daniel's review of the first spike B sheet (2026-11-22) asked for the house style: visible edges only,
+centre marks, lettered section and detail, a dimensioned detail, a group view label, a scale that fills
+the sheet, a full title block, rev table, BOM, notes, dimensions with hole callouts, and real circles in
+the DXF. Script: `research/spike-b/styled_sheet.py`. Output stays in `research/_local/out/spike-b/`
+(`spike_b_sheet.pdf`, `.dxf`, `.checks.json`).
+
+| Item | Result | How |
+|---|---|---|
+| Visible edges only, all views | PASS | Engine default. 0 hidden-line items on the sheet. |
+| Centre marks on all holes | PASS | Engine `centermark` on the four holes in the top view. |
+| Section with arrows and letters | PASS | Engine `section` spec: capped cut, cutting-plane line, arrows, `A` at both ends. |
+| Detail with letter and dimensions | PASS, with a wrapper | Engine `details` spec letters the parent circle. Its detail dimensions can only sit above or beside a feature, so the pocket width and depth are added by a wrapper. |
+| Group view label, `TRIMETRIC VIEW` | PASS, with a wrapper | The engine names the pictorial; the group label is added by the script. |
+| Scale fills the sheet | PASS | Engine `pick_scale` chose 1.5:1 (2:1 leaves no room for dimensions). |
+| Title block, rev table, notes | PASS | Engine `frame`, a `REVLOG.md` beside the STEP, spec `notes`. Initials come from the drawing-initials setting. |
+| BOM | PASS, with a wrapper | Engine `asm.bom_table`. `make_part` has no BOM, so the script adds it and reserves its space. |
+| Dimensions and hole callout | PASS | Ordinate hole locations, overall 80 / 50 / 10, `4X ⌀6 THRU`, pocket square 20 and depth 4. |
+| Tapped-hole callouts | Not shown | The plate has no tapped holes. The engine's `hole_callouts` covers them; untested here. |
+| DXF real circles | PASS for circles | The script's own DXF writer puts the four holes out as CIRCLE entities, with centre and radius taken from the B-rep. Holes in the trimetric view are ellipses and stay polylines. |
+| Engine rule check | PASS | `spike_b_sheet.checks.json` reports `ok: true`. |
+
+Gaps this showed in the engine, for our copy of it (ADR-009), and one note:
+
+- A section takes over the front or right view slot, so a sheet cannot carry front, top and right views
+  plus a section. This sheet has the section in the front slot, and the group label reads `TOP / RIGHT VIEWS`.
+- No spec field for a BOM on a part sheet, a group view label, a view label offset, or a detail
+  dimension below a feature.
+- The DXF writer has no CIRCLE or ARC output.
+- The test plate's material (`6061-T6 AL (TEST)`) was made up for the test so the field is filled.

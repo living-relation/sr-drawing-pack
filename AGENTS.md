@@ -26,7 +26,7 @@ handoff notes in this repo.
 ## Map
 - `docs/RESEARCH.md`: test evidence. `docs/REFERENCES.md`: read-only sources and licenses. `docs/DATA-CARD.md`: draft data card schema.
 - `research/fusion-tests/`: one-off test scripts. They need the `SRDP_ROOT` environment variable (path to your clone).
-- `research/spike-b/`: spike B scripts. `views_row.py` needs `HBCAD_ROOT` (path to a handbuilt-cad clone) and that clone's Python.
+- `research/spike-b/`: spike B scripts. `views_row.py` and `styled_sheet.py` need `HBCAD_ROOT` (path to a handbuilt-cad clone) and that clone's Python.
 
 ## Coordination
 - One coordinator chat owns the root STATE. Workers are dispatched from it, one branch each, each with
@@ -66,7 +66,7 @@ handoff notes in this repo.
   starts with `SRDP_SCRATCH`, and close only that.
 - Never call sheets or views APIs on a drawing that has no model reference. It hung Fusion once.
 - `execute_python` runs on Fusion's main thread: a hang kills the MCP. Keep calls short.
-- Take the workstation fusion-lock with a unique holder name before any live test, and release it after.
+- The Fusion lock is retired (Daniel, 2026-11-22). Do not take or check it.
 - Do not start or stop the workstation workers.
 - Nothing is installed into Fusion's AddIns folder until Daniel approves an iteration. When approved,
   install by a directory junction from AddIns to the add-in folder in the clone (same as sr-bom,
