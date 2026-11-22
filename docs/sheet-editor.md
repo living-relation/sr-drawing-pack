@@ -73,11 +73,11 @@ A BOM region that fills continues into the next region, on the same sheet or ano
 
 `load_bom_components` takes plain records. It does not read Fusion. A later stage can fill those records from SR BOM properties on the components.
 
-`check` warns if the title rev letter does not match the newest log row, if initials look wrong, if two BOM rows share an item number, if a BOM region has no height, overlaps the title block or the rev table, or runs off the sheet, if BOM rows do not fit, or if a balloon points at a missing row. The PDF is still written, so a drawing can be saved in the middle of an edit. `place_bom` rejects a `max_height` of 0 or less.
+`check` warns if the title rev letter does not match the newest log row, if initials look wrong, if two BOM rows share an item number, if the tolerance text needs more lines than its block holds, if a BOM region has no height, overlaps the title block or the rev table, or runs off the sheet, if BOM rows do not fit, or if a balloon points at a missing row. The PDF is still written, so a drawing can be saved in the middle of an edit. `place_bom` rejects a `max_height` of 0 or less.
 
-The PDF embeds DejaVu Sans (the same family as the filed drawings), subset to the glyphs that PDF uses, with a ToUnicode map so the text stays searchable. Diameter (⌀), ≤, and ≥ draw as themselves. A character the font does not have is named in the export warnings. BOM text uses the handbuilt parts-list size: 2.0 mm, drawn at 7.874 pt.
+The PDF embeds DejaVu Sans (the same family as the filed drawings), subset to the glyphs that PDF uses (the font name carries the usual six-letter subset tag), with a ToUnicode map so the text stays searchable. Diameter (⌀), ≤, and ≥ draw as themselves. A character the font does not have is named in the export warnings. BOM text uses the handbuilt parts-list size: 2.0 mm, drawn at 7.874 pt.
 
-The tolerance block does not add an edge-break line. Put that text in the `tol` field only when you want it on that drawing.
+The tolerance block does not add an edge-break line. Put that text in the `tol` field only when you want it on that drawing. A `tol` line wider than the block wraps inside it. Lines that already fit are kept as written, so aligned columns keep their spaces.
 
 Sheet rules that this package draws are in `SRDrawingPDF/sheet2d/SHEET-RULES.md`.
 

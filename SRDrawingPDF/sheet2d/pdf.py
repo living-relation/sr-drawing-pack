@@ -189,8 +189,8 @@ def write_pdf(sheets, path):
         True: face(True).subset(bold_chars),
     }
     doc = _Doc()
-    regular = _font_objects(doc, faces[False], 'DejaVuSans')
-    bold = _font_objects(doc, faces[True], 'DejaVuSans-Bold')
+    regular = _font_objects(doc, faces[False], _subset_tag(regular_chars) + '+DejaVuSans')
+    bold = _font_objects(doc, faces[True], _subset_tag(bold_chars) + '+DejaVuSans-Bold')
     missing = []
     page_ids = []
     # Parent id is assigned after the page objects. Reserve it by counting.
@@ -210,6 +210,13 @@ def write_pdf(sheets, path):
         if char not in seen:
             seen.append(char)
     return seen
+
+
+def _subset_tag(chars):
+    """Six capital letters naming a font subset, as the PDF spec asks (same chars, same tag)."""
+    import hashlib
+    digest = hashlib.sha1(''.join(sorted(set(chars))).encode('utf-8')).digest()
+    return ''.join(chr(ord('A') + b % 26) for b in digest[:6])
 
 
 def _stream(num, data):

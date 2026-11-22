@@ -34,6 +34,34 @@ DEFAULT_TOL = (
     'INTERPRET PER ASME Y14.5-2018'
 )
 
+# Tolerance block: 92 mm wide, text starts 6.5 mm below its top edge.
+TOL_W = 92.0
+TOL_H = 2.2
+TOL_TOP = 33.5
+
+
+def tol_lines(tol):
+    """The tolerance text wrapped to the block width, one string per line.
+
+    A line that already fits is kept as written, so aligned columns keep their spaces.
+    """
+    from .font import text_width_mm
+    avail = TOL_W - 4.0
+    lines = []
+    for line in str(tol or DEFAULT_TOL).split('\n'):
+        if text_width_mm(line, TOL_H) <= avail:
+            lines.append(line)
+        else:
+            lines.extend(_wrap(line, avail + 1.0, TOL_H))
+    return lines
+
+
+def tol_max_lines():
+    """How many tolerance lines fit inside the block."""
+    from .pdf import _cap_mm
+    return int((TOL_TOP - _cap_mm(TOL_H, False) - 1.0) // (TOL_H * 1.6)) + 1
+
+
 REVLOG_COLS = (9, 66, 18, 15)
 REVLOG_RH = 4.2
 REVLOG_H = (1.8, 1.7)
@@ -276,10 +304,10 @@ def draw_frame(sh, info, sheet_no, n_sheets, width=None, height=None, zones=(8, 
     sh.circle((cx + 4, cy), 1.0, 'thin')
     sh.txt(a + 27, cy, '3RD ANGLE', h=1.8)
 
-    tx0 = x0 - 92
+    tx0 = x0 - TOL_W
     sh.pl([(tx0, y0), (x0, y0), (x0, y0 + 40), (tx0, y0 + 40)], 'tb', closed=True)
     sh.txt(tx0 + 2, y0 + 38, 'UNLESS OTHERWISE SPECIFIED:', h=2.2, ha='left', va='top', bold=True)
-    sh.txt(tx0 + 2, y0 + 33.5, info.get('tol') or DEFAULT_TOL, h=2.2, ha='left', va='top')
+    sh.txt(tx0 + 2, y0 + TOL_TOP, '\n'.join(tol_lines(info.get('tol'))), h=TOL_H, ha='left', va='top')
 
     if info.get('draft'):
         label = 'DRAFT %s, NOT RELEASED' % int(info['draft'])

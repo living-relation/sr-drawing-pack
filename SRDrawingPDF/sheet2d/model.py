@@ -10,6 +10,8 @@ from .canvas import (
     bom_row_cells,
     bom_row_height,
     revlog_rect,
+    tol_lines,
+    tol_max_lines,
 )
 from .revs import (
     REVLOG_MAX_ROWS,
@@ -320,6 +322,9 @@ def document_warnings(doc):
     if layout['overflow']:
         warnings.append('BOM rows do not fit: %s' % ', '.join(str(k) for k in layout['overflow']))
     _bom_warnings(doc, warnings)
+    n_tol = len(tol_lines(doc.properties.get('tol')))
+    if n_tol > tol_max_lines():
+        warnings.append('tolerance text needs %d lines; the block fits %d' % (n_tol, tol_max_lines()))
     keys = {r.get('key') for r in doc.bom}
     note_keys = {n.get('key') for n in doc.notes}
     for sheet in doc.sheets:

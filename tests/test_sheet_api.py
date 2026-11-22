@@ -269,7 +269,7 @@ def test_sample_pdf_is_two_size_b_sheets(tmp_path):
             continue
         assert _pdf_has(raw, text), text
     assert not _pdf_has(raw, 'DRAFT')
-    assert b'/BaseFont /DejaVuSans' in raw
+    assert b'+DejaVuSans' in raw
     assert b'/FontFile2' in raw
     assert 'BREAK SHARP EDGES' not in D.DEFAULT_TOL
 
@@ -352,6 +352,44 @@ def test_default_tolerance_has_no_edge_break_line():
     }, 1, 1)
     texts = '\n'.join(it[3] for it in sh.items if it[0] == 'tx')
     assert 'BREAK SHARP EDGES 0.2-0.4' in texts
+
+
+def test_long_tolerance_line_wraps_inside_the_block():
+    from sheet2d.font import text_width_mm
+    tol = 'X.X \u00b10.2  X.XX \u00b10.1  HOLE \u2300 \u2264 6 +0.1/-0  ANGLES \u2265 \u00b10.5\u00b0'
+    sh = D.Sheet()
+    D.draw_frame(sh, {
+        'project': 'P', 'title': 'T', 'pn': 'N', 'rev': 'A', 'material': 'SEE BOM',
+        'scale': '1:1', 'drawn': 'DG', 'date': '2026-11-22', 'source': 'a.step',
+        'tol': tol, 'revlog': [],
+    }, 1, 1)
+    body = [it for it in sh.items if it[0] == 'tx' and 'HOLE' in it[3]][0][3]
+    lines = body.split('\n')
+    assert len(lines) > 1
+    assert all(text_width_mm(line, D.TOL_H) <= D.TOL_W - 2.0 for line in lines)
+    assert ' '.join(lines) == tol
+
+
+def test_default_tolerance_keeps_its_lines():
+    assert D.tol_lines(None) == D.DEFAULT_TOL.split('\n')
+    assert len(D.tol_lines(None)) <= D.tol_max_lines()
+
+
+def test_embedded_fonts_carry_a_subset_tag(tmp_path):
+    import re
+    path = str(tmp_path / 'tag.pdf')
+    execute(build_sample(), 'export_pdf', {'path': path})
+    data = open(path, 'rb').read()
+    names = set(re.findall(rb'/BaseFont /(\S+)', data))
+    assert names
+    assert all(re.match(rb'^[A-Z]{6}\+DejaVuSans(-Bold)?$', n) for n in names)
+
+
+def test_tolerance_that_does_not_fit_warns():
+    doc, _info = _go(None, 'add_sheet', id='s1')
+    doc, _info = _go(doc, 'set_title', field='tol', value='\n'.join('LINE %d' % i for i in range(20)))
+    warnings = execute(doc, 'check', {})['result']['warnings']
+    assert any('tolerance text' in w for w in warnings)
 
 
 def test_balloon_leader_has_no_arrow_and_number_is_bold():
