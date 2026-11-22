@@ -232,3 +232,63 @@ Gaps this showed in the engine, for our copy of it (ADR-009), and one note:
   dimension below a feature.
 - The DXF writer has no CIRCLE or ARC output.
 - The test plate's material (`6061-T6 AL (TEST)`) was made up for the test so the field is filled.
+
+## Editor slice and assembly test (2026-11-22)
+
+Two worker results, merged as PRs #11 and #12. Details, run steps and sources are in each folder's
+README: `research/editor-slice/` and `research/assembly-test/`. Outputs stay in `research/_local/`.
+
+### Editor slice: the first clickable screen
+
+A local web page (SVG, no framework) served by a small Python server that asks the engine for view lines.
+Checked by clicking in a browser and by 16 tests.
+
+| Item | Result |
+|---|---|
+| Drag a view from the side panel onto an 11x17 sheet, drag to move | PASS |
+| Projected views left, right, top, bottom from any parent (third angle) | PASS |
+| Link rules: children follow, one-axis slide, break link, freed child projects | PASS |
+| Delete, undo, sheet scale, add / remove / switch sheets (sheet 1 stays) | PASS |
+| Save, and PDF export through the engine with the title block | PASS |
+| On-screen title block, continuation sheet frame, pan and zoom, group labels | Not built (placeholders) |
+| Inside a Fusion panel, a real assembly, loading a STEP | Not tested |
+
+- The screen basics were not the hard part. The server owns the document and the page only sends
+  commands, which made undo nearly free.
+- Main risk: two renderers. The screen and the PDF are drawn by different code; only the view lines are
+  shared. Title block, tables and dimensions would be written twice unless the engine hands one item list
+  to both.
+- Estimate for the editor screen without annotations: about 3 to 5 weeks (judgement). Hand-placed
+  annotations remain the largest item on top.
+
+### Assembly test: an 8-row assembly drawn to the house rules
+
+Test assembly `SRDP-T-100` (base plate, cover sub-assembly with handle, stop block, three screw sizes;
+12 solids), built with build123d. sr-cadlib was not used: it only runs inside Fusion. Package: 3 sheets
+(views and BOM, build order, section A-A with details B, C, D). Engine rule check: `ok: true`.
+
+| Item | Result |
+|---|---|
+| BOM rows and quantities against the model (counted) | PASS, 8 rows, 12 leaf parts |
+| Sub-assembly as one item on sheet 1, children on its build step | PASS, with a spec trick |
+| Balloons tied to BOM rows | PASS, every row ballooned on some sheet |
+| Tapped blind hole: thread depth and deeper drill | PASS (engine) |
+| Tapped through hole: thread plus tap drill | PASS, tap-drill line added by a wrapper |
+| Counterbore callout | PASS (engine) |
+| Capped assembly section, parts hatched opposite ways, screws unhatched | PASS, with wrappers |
+| Details carrying the callouts | PASS, with wrappers. Two detail circles overlap on the section. |
+| Visible edges only, centre marks, title block, rev table, notes | PASS |
+| DXF circles | PASS in the top view; pictorial views stay polylines |
+| STEP keeps the tree, quantities and positions | PASS. The importer changes spaces and dots in names to underscores. |
+| BOM from the STEP alone | PARTLY: rows, quantities, part numbers yes; description and material no |
+| Hidden-line time, whole assembly | 0.14 to 0.21 s per view |
+| Hole positions dimensioned | NOT DONE: the assembly flow has no hole table or per-part plan view |
+
+- Engine gaps for our copy (ADR-009): no section, centre marks, cutting-plane line or details in the
+  assembly flow; one hatch direction and no way to leave fasteners unhatched; no tap drill on a through
+  tapped hole; no sub-assembly or indented BOM; no continuation title block; no CIRCLE / ARC in the DXF
+  writer; no hole-position dimensions for an assembly-only package.
+- A STEP does not say which holes are tapped or how deep the thread is. That has to come from Fusion or
+  a spec file.
+- Not verified: a Fusion round trip of this assembly. The STEP written by build123d is AP214; handbuilt-cad
+  asks for AP242. Counterbore size, blind depths, plate sizes and materials are test values, not from a standard.
