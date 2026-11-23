@@ -1,7 +1,9 @@
 # State protocol (always on)
 
-Live state lives in the memory store, never in this repo. Run **state-closeout** at 80% context, on a
-pivot, a blocker, a milestone and a PR.
+Live state lives in this repo (decision 2026-11-22): `STATE.md` (trunk, the coordinator's), `STATE-<slug>.md`
+(one per branch, committed on that branch), `BACKLOG.md` and `archives/` at the repo root. The memory store
+keeps notes only (preferences, machine facts, gotchas), never status. Run **state-closeout** at 80% context,
+on a pivot, a blocker, a milestone and a PR.
 
 ## The seven tags
 
@@ -13,8 +15,11 @@ pivot, a blocker, a milestone and a PR.
 | `[ADR]` | why a choice was made | appended to `docs/DECISIONS.md` |
 | `[RULE]` | how files must be made, named, ordered or checked | `.claude/rules/<domain>.md`, then `rules_sync.py` |
 | `[SOT]` | raw values: numbers, IDs, sizes, tolerances | the data file or SPEC, only after the owner's yes |
-| `[BKLG]` | out of scope now | appended to the store's `BACKLOG.md` with the date |
+| `[BKLG]` | out of scope now | appended to `BACKLOG.md` at the repo root with the date |
 
 Only `[NEXT]` may stay in a STATE file. STATE is 30 lines at most and is overwritten, never appended.
+A PR's last commit archives its state file (`state_manager.py archive-branch`:
+`git mv STATE-<slug>.md archives/STATE-<slug>-<YYYYMMDD>.md`). No `HANDOFF` or `handoffs/` files.
 
-Enforcer: `state_lint.py` (run by state-closeout and by the git pre-commit hook from the workstation hook pack).
+Enforcer: `state_lint.py` (run by state-closeout and by the git pre-commit hook from the workstation hook pack)
+and the `state-files-gate` CI check (fails a PR that leaves a top-level `STATE-*.md`).
