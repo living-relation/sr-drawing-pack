@@ -454,3 +454,46 @@ ADR-039 asks for smooth, continuous lines that never look like a mesh, from any 
 - A mesh body must never go through the B-rep methods: it needs the crease-and-silhouette method (5).
 - Joining pieces (3) gives continuous lines for the PDF and DXF; true circles and arcs still need snapping to the
   exact edges where a B-rep exists.
+
+## Render-mode switching and the other view types: how each can be made (2026-11-23)
+
+Answers to Daniel's questions of 2026-11-23. Plans from what was tested; items marked "untested" are not proven.
+
+### Switching a placed view to another render mode
+
+| From -> to | What it needs | Cost |
+|---|---|---|
+| DRAFT -> HQ | Only the view's own lines: the pieces are joined. No model needed. | Instant (0.03 s on the lid) |
+| FAST DRAFT or DRAFT -> HQ / UHQ | The model, but only that one view's camera is projected again | One view's time, not the whole drawing |
+| HQ -> UHQ | The B-rep, that view only | 0.1 to 0.5 s on one part; minutes on a 147-part assembly |
+
+- A view is stored as model reference + model version + camera + scale + mode + its lines. Switching mode re-runs only
+  that view. The mesh and the imported model are cached per model version, so reopening a drawing does not rebuild them.
+- Placing views at DRAFT first and upgrading in a background process (one process per view, as SOLIDWORKS does for
+  high-quality views) makes the first placement fast: about 3 to 7 s per view on the reference assembly instead of
+  minutes. The final save waits for any upgrade still running. Untested as a pipeline; each step is tested alone.
+
+### View palette
+
+- Yes: every view is a camera, so a palette can list front, back, left, right, top, bottom, trimetric, the model's
+  saved named views (Fusion `Design.namedViews`, tested in spike A) and the user's own saved views. The palette is
+  saved in the drawing, so views can be dragged onto any sheet later, like the SOLIDWORKS View Palette. The editor
+  slice already has a side panel of standard views. sr-export's `bom.json` does not carry named views yet.
+
+### Other view types
+
+| View | Method | State |
+|---|---|---|
+| Projected | Parent camera turned 90 deg, linked to the parent | Built in the editor slice |
+| Auxiliary | Camera along the normal of a face or edge picked in a parent view, linked like a projected view | Untested; same projection call |
+| Section (part) | Cut the solid with a plane, keep one side, cap and hatch the cut faces | In the engine (`section_view`) |
+| Section (assembly) | Cut each part, hatch each a different way, leave fasteners uncut | Done by a wrapper in the assembly test |
+| Detail | Clip the parent view's lines to a circle, scale up; UHQ projects that region again | Done in spike B and the assembly test |
+| Broken view | Remove a band of the view's lines and close the gap, add break lines; 2D only | Untested; simple |
+| Broken-out section | Cut the model with a prism from a closed profile drawn on the view, then project | Untested; needs a B-rep cut |
+| Crop view | Clip the view's lines to a profile; 2D only | Untested; simple |
+| Exploded view with trail lines | Move parts along an insertion direction per assembly step; dotted lines join each part to its place | In the engine (`exploded_shapes`, `explode_lines`, `stage_sheets`) |
+
+- Exploded steps need an order and a direction per part. The engine takes them from a spec. Sources to test: the
+  directions of Fusion joints between parts, and a step list the engineer edits in the editor. Untested.
+- Every one of these works on the camera and the view's lines, so each can use any render mode.
