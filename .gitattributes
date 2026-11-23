@@ -1,0 +1,22 @@
+# Line endings: LF in every checkout on every OS, so Windows core.autocrlf no longer rewrites files
+# (copied scripts such as .github/registry-check.py stay byte-identical to workstation).
+# Same base rules as workstation and handbuilt-cad. Git still auto-detects other binaries.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+*.psd1 text eol=crlf
+*.vbs text eol=crlf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.xlsx binary
+*.step binary
+*.stp binary
+*.stl binary
+*.3mf binary
+*.f3d binary
