@@ -226,3 +226,27 @@ Entry format: ID, Status, Context, Decision, Rejected, Supersedes, Reopen if.
 - Rejected: STEP alone (BOM and thread data missing); reading the `.f3d` directly (no open reader); Fusion's drawing engine for views (spike A).
 - Supersedes: the open point of ADR-021 (how a view becomes 2D geometry). Works with ADR-002 (the spec file still overrides Fusion).
 - Reopen if: a real hub design shows data the export cannot reach. Evidence: docs/RESEARCH.md, "Fusion data file with the STEP".
+
+## ADR-029: sr-export's data file, and the drawing's own BOM (2026-11-23)
+- Status: Accepted
+- Context: sr-export already writes `<name>.bom.json` next to every STEP (schema `sr-bom-sidecar` v1): BOM rows with occurrence paths, linked source and version, holes, threads, tap drills, mass and thumbnails. Our own export script repeated part of it.
+- Decision: The engine reads sr-export's `bom.json` as its data file (the "data file" of ADR-028). `research/fusion-data/export_step_and_data.py` is retired as a research script. The drawing still carries its own BOM: it can be moved around the sheets, and every row links to the actual part in every view, so balloons and other annotations can be placed on that part. Part visibility is added to sr-export's file so each view can have its own hide list (sr-export change).
+- Rejected: our own export script; a BOM that is only an external file.
+- Supersedes: the "data file" source in ADR-028. Works with ADR-002 (the spec file still overrides Fusion fields).
+- Reopen if: sr-export's schema changes in a breaking way.
+
+## ADR-030: View quality, fast by default (2026-11-23)
+- Status: Accepted
+- Context: On a real 147-part assembly the exact hidden-line removal did not finish a view in 7 minutes; the polygonal ("fast") method took 2.5 to 7.3 s per view (docs/RESEARCH.md). SolidWorks, FreeCAD and Creo offer the same choice.
+- Decision: Views are made with the fast method by default. Exact edges are snapped in where dimensions, hole callouts and DXF need true circles and arcs. A full-fast option (no snapping) is offered. The engineer can switch any single view between the methods in the drawing.
+- Rejected: exact only (too slow on real assemblies).
+- Supersedes: none
+- Reopen if: the fast method misses edges that matter on real drawings.
+
+## ADR-031: Real test design (2026-11-23)
+- Status: Accepted
+- Context: Tuning needs a real, typical assembly.
+- Decision: `custom-pdm-enclosure-v2c-F1` (custom-pdm project, 147 parts, linked parts, a sub-assembly, PCBs) is the reference assembly for speed and quality tests.
+- Rejected: only small test assemblies.
+- Supersedes: none
+- Reopen if: Daniel names another reference design.
