@@ -1,4 +1,6 @@
-"""Fusion side of ADR-028: export a STEP, an f3d and a data file from one design in one go.
+"""RETIRED (ADR-029): use sr-export's <name>.bom.json instead. Kept as the record of the ADR-028 test.
+
+Fusion side of ADR-028: export a STEP, an f3d and a data file from one design in one go.
 
 Run inside Fusion through its built-in MCP script tool. Set SRDP_FUSION_DATA_OUT to an output folder
 (for example research/_local/out/fusion-data in your clone). The script builds its own scratch design
