@@ -77,3 +77,6 @@
 - 2026-11-23 (state-in-repo migration): docs/SPEC.md M0 done criterion still says "STATE, BACKLOG, archives exist in the store"; since decision 2026-11-22 they live at the repo root. needs owner yes (SPEC is Daniel's).
 - [closed 2026-11-23] H39: keep docs/DATA-CARD.md here as reference for any repo that wants it (Daniel).
 - [closed 2026-11-23] H41a: SPEC M0 done criterion now says live state lives in the repo root (Daniel's yes).
+- [closed 2026-11-23] 2026-11-23 Fusion Compute vs local Fusion: local desktop Fusion for tests and use (ADR-042, H36a).
+- [closed 2026-11-23] 2026-11-22 F3D fork / test copy keep-or-remove: kept (H23a line below it).
+- 2026-11-23 (drift watch): the 2026-11-22 AP214/AP242 line and the 2026-11-23 AP242 line are the same open item; track it as one.

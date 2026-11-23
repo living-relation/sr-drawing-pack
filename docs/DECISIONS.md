@@ -350,3 +350,11 @@ Entry format: ID, Status, Context, Decision, Rejected, Supersedes, Reopen if.
 - Rejected: Fusion Compute for tests (the workstation root guide prefers it in general; this repo's use is desktop); a thin phantom-font style as "partial" (that is SOLIDWORKS "Use font").
 - Supersedes: refines ADR-040 (what "partial" draws).
 - Reopen if: engineers use the app headless, or "Hide ends" looks wrong in tests.
+
+## ADR-043: Keep the data card draft as reference (2026-11-23, Daniel, H39)
+- Status: Accepted
+- Context: ADR-032 moved the data card to the PDM, so this repo no longer uses `docs/DATA-CARD.md`. Where it should go was open (H39).
+- Decision: Keep `docs/DATA-CARD.md` in this repo with its superseded banner, as reference for any repo that wants it. Nothing in this repo writes or reads it.
+- Rejected: deleting it; moving it to another repo now.
+- Supersedes: none; refines ADR-032.
+- Reopen if: another repo takes ownership of the data card.
