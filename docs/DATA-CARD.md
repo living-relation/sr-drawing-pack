@@ -1,3 +1,6 @@
+> **Superseded (ADR-032, 2026-11-23):** the data card is the PDM's job, not this app's. This file is kept
+> only as reference for the PDM project; nothing in this repo writes it.
+
 # SR data card (`<part number> <description>.sr.json`), draft 2
 
 Status: **draft, scope under review** (ADR-014, Proposed). Nothing uses it yet. The release package is

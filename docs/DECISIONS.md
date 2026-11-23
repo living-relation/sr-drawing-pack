@@ -314,3 +314,23 @@ Entry format: ID, Status, Context, Decision, Rejected, Supersedes, Reopen if.
 - Rejected: Fusion screenshots for thumbnails; a method chosen by name rather than by how the drawing looks.
 - Supersedes: refines ADR-030.
 - Reopen if: the example drawings show no method meets the test for a model type.
+
+## ADR-040: Render modes per view (2026-11-23)
+- Status: Accepted. FAST DRAFT reading to confirm; more tests on simple and large models first (H34b).
+- Context: Daniel reviewed the view-method example sheet (docs/RESEARCH.md, "View methods compared") and named the modes.
+- Decision: Four render modes, chosen per view:
+  - UHQ: exact B-rep hidden-line removal (row 1 of the example).
+  - HQ: fast polygonal method with the pieces joined into continuous lines (row 3).
+  - DRAFT: fast polygonal method, raw pieces (row 2).
+  - FAST DRAFT: mesh creases and silhouettes (row 5), optional, for very large files with many parts or sheets.
+  Lower modes can be used while editing, so the drawing loads, saves and redraws quickly. At the final save the user
+  chooses HQ or UHQ and the views are converted then. The mode picker shows a thumbnail of each mode (first set from
+  the example sheet). Any placed view can be switched to another mode from its right-click menu ("Change render mode").
+  All three of UHQ, HQ and DRAFT are acceptable on screen.
+  Tangent edges have their own three settings per view, to speed up rendering or improve the look: hidden, drawn,
+  or partial (what "partial" draws is to be confirmed). Default: drawn, in every view (Daniel, 2026-11-23). This
+  differs from handbuilt-cad DRAWING-RULES 16, which drops tangent edges from orthographic views; for this app
+  Daniel's default wins.
+- Rejected: one fixed method for all views; a mesh body drawn from its triangles.
+- Supersedes: refines ADR-030 and ADR-039.
+- Reopen if: tests on simple and large models show a mode that looks wrong.
