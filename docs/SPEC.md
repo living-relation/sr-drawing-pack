@@ -8,7 +8,7 @@ made is in [DECISIONS.md](DECISIONS.md). Test evidence is in [RESEARCH.md](RESEA
 
 | ID | Milestone | Done when |
 |---|---|---|
-| M0 | Repo set up | Router role table, DECISIONS, rules, SPEC exist in the repo; STATE, BACKLOG, archives exist in the store. LICENSE committed. A fresh agent in this repo can reach Fusion and knows which skills to load. session-start reports the repo state in 3 lines with no drift. |
+| M0 | Repo set up | Router role table, DECISIONS, rules, SPEC, STATE, BACKLOG and archives exist in the repo (live state at the repo root, workstation #114; Daniel's yes 2026-11-23, H41). LICENSE committed. A fresh agent in this repo can reach Fusion and knows which skills to load. session-start reports the repo state in 3 lines with no drift. |
 | M1 | Editing surface chosen (blocks all build work) | Each spike below reports pass / fail per requirement group, with evidence. Daniel picks the surface. Recorded in DECISIONS (ADR-001, ADR-016). |
 | M2 | First iteration (after M1) | Every item in the M2 list below works on the test assembly. |
 | M3 | Later (outline only) | TBD. See the M3 list below. |

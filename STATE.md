@@ -10,7 +10,7 @@ Updated: 2026-11-23 -- Claude worker (moved from the store into the repo)
 
 ## Active Blocker
 - Status: NONE
-- Detail: none (H41 SPEC wording waits on Daniel; not blocking)
+- Detail: none
 
 ## Next Single Step
 - [NEXT] Find the test models in the Spark hub (filament cabinet, RTR, AOI, PDM, fuse boxes, fuel hanger), export STEP + bom.json with sr-export in local Fusion, run UHQ/HQ/DRAFT/FAST DRAFT with tangent drawn and the anti-aliasing fixes; results to docs/RESEARCH.md
