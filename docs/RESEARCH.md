@@ -434,3 +434,23 @@ sidecar code was run inside Fusion on the open design (0.9 s, design not modifie
 
 - Whole run, views and both sheets: about 50 s; with thumbnails about 2 minutes. The exact method never finished one view.
 - The top assembly's own part number is not in `bom.json` (it lists the parts). Taken from Fusion separately for this test.
+
+## View methods compared, any model type (2026-11-23)
+
+ADR-039 asks for smooth, continuous lines that never look like a mesh, from any model type. Script:
+`research/real-test/compare_methods.py`, on the lid `CPDM-ENC-102` of the reference assembly (465 faces; as a mesh,
+15,610 triangles). Output: `research/_local/out/real-test/compare/compare_methods.pdf`.
+
+| Method | Front | Trimetric | Looks like a drawing? |
+|---|---|---|---|
+| 1 Exact B-rep | 0.4 s, 160 lines | 0.1 s, 442 lines | Yes (reference) |
+| 2 Fast, raw pieces | 0.02 s, 566 pieces | 0.05 s, 1,774 pieces | Yes on screen, but every curve is many short pieces |
+| 3 Fast, joined into polylines | 0.03 s, 110 lines | 0.07 s, 345 lines | Yes; matches 1 by eye, fewer lines than 1 |
+| 4 Mesh body, fast | 1.1 s, 5,854 pieces | 1.3 s, 7,917 pieces | No: every triangle edge shows (the failure case) |
+| 5 Mesh body, creases + silhouettes | 0.8 s, 1,010 lines | 1.3 s, 471 lines | Mostly; curved outlines break into dashes (z-buffer tolerance), fixable |
+
+- On one part the exact method is fast (under half a second). It is only slow on whole assemblies (no view in 7
+  minutes on the 147-part enclosure).
+- A mesh body must never go through the B-rep methods: it needs the crease-and-silhouette method (5).
+- Joining pieces (3) gives continuous lines for the PDF and DXF; true circles and arcs still need snapping to the
+  exact edges where a B-rep exists.
