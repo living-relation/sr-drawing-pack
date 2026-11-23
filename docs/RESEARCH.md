@@ -365,3 +365,54 @@ Output stays in `research/_local/out/thumbnails/`.
 
 - A copied or re-wrapped shape is needed before export: build123d refused to write a STEP for a node taken straight from the imported tree.
 - F3D becomes a tool the app needs on each PC (about 70 MB unpacked, BSD 3-Clause). The alternative is a picture from Fusion at export time.
+
+## Real design test and faster views (2026-11-22)
+
+Design: `custom-pdm-enclosure-v2c-F1` v17 (Daniel's hub, custom-pdm project): 147 top-level parts, 45 distinct
+top-level rows, 155 BOM rows in all, 1,276 bodies, 58,187 faces, 98 linked parts, one sub-assembly. Opened read-only,
+exported, closed without saving. Scripts: `research/real-test/`. Outputs stay in `research/_local/out/real-test/`.
+
+### Export and BOM
+
+| Item | Result | Evidence |
+|---|---|---|
+| STEP export from Fusion | PASS | 7.6 s, 71 MB. The design stayed unmodified. |
+| Data file from Fusion | PASS | 0.02 s. |
+| BOM: STEP against Fusion | PASS | All 45 top-level rows and all 147 parts match by name and quantity. |
+| Part number and description | PASS | None blank. |
+| Material | FAIL as data | Fusion's material is "Aluminum 6061" on bought parts and PCBs too; the real material is written in the description text. The spec-file override (ADR-002) is needed. |
+| Hole and thread data | NOT AVAILABLE here | 0 Hole features (parts came in as STEP); the 13 thread features are all on screws. |
+| f3d export | Not possible | The design has linked parts. |
+| STEP import into the engine | 17 to 21 s | 4.5 GB of memory during exact hidden-line removal. |
+
+### Hidden-line removal on a real assembly
+
+| Method | Front view | Result |
+|---|---|---|
+| Exact (`HLRBRep_Algo`, the engine's current call), whole assembly | Did not finish in 7 min | Stopped. |
+| Exact, parts over 1,500 faces left out (PCBs) | 262 s | 50,375 hidden pieces worked out and thrown away. |
+| Exact, parts over 300 faces left out | 200 s | Other views ran over 2 hours without finishing. |
+| Polygonal (`HLRBRep_PolyAlgo`) on a 0.2 mm mesh, whole assembly | 2.8 s (+3.8 s meshing once) | Clean, complete view. Top 2.5 s, trimetric 7.3 s. |
+| Hybrid: exact edges kept where a z-buffer says they are in front | 47 s (z-buffer in plain numpy) | Exact lines, but silhouettes of curved faces are missing and some edges break. A real rasteriser would take it under a few seconds. |
+
+- Why the exact method is slow: every view starts again from the whole B-rep, and every edge is tested against every
+  face, including parts inside the enclosure that can never be seen. It also works out every hidden edge.
+- The polygonal method is what other CAD tools offer as a fast mode: SolidWorks "draft quality" views, FreeCAD
+  TechDraw "coarse view", Creo "fast HLR". Lines are short straight segments, so circles and arcs are polygons.
+- Converting to DXF first would not help: DXF is already 2D, and the projection is the slow step.
+
+### Angles found in Daniel's repos and Autodesk docs
+
+- **sr-export already writes the data file.** Every STEP it exports gets `<name>.bom.json` (schema
+  `sr-bom-sidecar` v1): BOM with occurrence paths, linked source and version, mass properties, holes, hole groups,
+  thread data, tap drills from Fusion's own thread tables, thumbnails, and an "unsaved changes" warning.
+  `research/fusion-data/export_step_and_data.py` duplicates part of it.
+- **Linked part versions** are in that file, so view lines and thumbnails can be cached per part version.
+- **Component visibility** is not in the file yet. Fusion knows it (light bulb per occurrence), so per-view
+  hide lists are possible, like SolidWorks "hide components" in a view.
+- **Fusion attributes** can be stored on faces and edges and survive model edits. Tagging features in Fusion and
+  writing the tags into the data file is a route to dimensions that stay attached when the model changes.
+- **Fusion Compute MCP** runs Fusion headless in the cloud (public beta, TypeScript API). It could do the
+  re-export the PDM asks for at approval (ADR-022) with no Fusion seat on the PDM side. Not tested; access and cost unknown.
+- **handbuilt-cad `tools/viewer.py`** writes a spin-around 3D viewer as one HTML file: a candidate for viewing
+  models in the vault without any install. `tools/views.py` has a small z-buffer renderer.
