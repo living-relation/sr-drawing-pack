@@ -290,3 +290,27 @@ Entry format: ID, Status, Context, Decision, Rejected, Supersedes, Reopen if.
 - Rejected: thumbnails required on the drawing sheet.
 - Supersedes: the "on the drawing" reading of ADR-003.
 - Reopen if: Daniel wants thumbnails on the sheet.
+
+## ADR-037: Editor window, view moves, deletes (2026-11-23)
+- Status: Accepted
+- Context: Questions H3, H12, H13.
+- Decision: The editor is a separate window opened from a button in Fusion. When the sheet scale changes, placed views keep their positions; if views overlap, the user moves them. Deleting a parent view leaves its projected children as free views.
+- Rejected: a panel inside Fusion; keeping the parent-child gap on a scale change (what the editor slice built); deleting children with the parent.
+- Supersedes: the "where the editor runs" open point of ADR-024.
+- Reopen if: none.
+
+## ADR-038: Tolerance by decimal places, per dimension (2026-11-23)
+- Status: Accepted
+- Context: Question H21. Builds on ADR-027.
+- Decision: Any feature dimension can carry its own tolerance. The title block's tolerance block sets the tolerance for each number of decimal places, so the number of decimals shown on a dimension sets its tolerance. Each dimension shows the default number of decimals, or more or fewer as the user sets it. In a hole table the decimals can be set per row or for the whole table.
+- Rejected: one fixed tolerance per file for holes.
+- Supersedes: the open point of ADR-027.
+- Reopen if: a dimension needs an explicit ± tolerance that no decimal count gives.
+
+## ADR-039: Thumbnails from F3D; view lines must look like a drawing (2026-11-23)
+- Status: Accepted. The view method per model type is being tested.
+- Context: Questions H25 and H32 (DRAWING-RULES 16 against the fast method of ADR-030).
+- Decision: BOM thumbnails come from F3D, bundled with the app. For views, the test is the result: every view shows smooth, continuous lines and never looks like a mesh, whatever the model is made of (solids, surfaces, B-rep bodies or mesh bodies). A drawing that shows thousands of triangle edges from a mesh body is a defect. The method that meets this per model type is chosen from example drawings.
+- Rejected: Fusion screenshots for thumbnails; a method chosen by name rather than by how the drawing looks.
+- Supersedes: refines ADR-030.
+- Reopen if: the example drawings show no method meets the test for a model type.
