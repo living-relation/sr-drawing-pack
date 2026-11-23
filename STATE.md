@@ -10,7 +10,7 @@ Updated: 2026-11-23 -- Claude worker (moved from the store into the repo)
 
 ## Active Blocker
 - Status: BLOCKED
-- Detail: waiting on Daniel: H39 (where docs/DATA-CARD.md goes: no sparkCAD PDM repo exists yet)
+- Detail: waiting on Daniel: H39 (where docs/DATA-CARD.md goes: sparkCAD PDM app repo and owner not visible here)
 
 ## Next Single Step
 - [NEXT] Find the test models in the Spark hub (filament cabinet, RTR, AOI, PDM, fuse boxes, fuel hanger), export STEP + bom.json with sr-export in local Fusion, run UHQ/HQ/DRAFT/FAST DRAFT with tangent drawn and the anti-aliasing fixes; results to docs/RESEARCH.md
