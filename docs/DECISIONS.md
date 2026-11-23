@@ -358,3 +358,11 @@ Entry format: ID, Status, Context, Decision, Rejected, Supersedes, Reopen if.
 - Rejected: deleting it; moving it to another repo now.
 - Supersedes: none; refines ADR-032.
 - Reopen if: another repo takes ownership of the data card.
+
+## ADR-044: Line endings: LF everywhere, Windows scripts CRLF (2026-11-23, Daniel, H42)
+- Status: Accepted
+- Context: Windows `core.autocrlf` rewrote copied gate scripts, so `.github/registry-check.py` on disk no longer matched the workstation copy. Daniel answered this in another session as "answer T" (relayed in PR #31 by Grok Bot); it is numbered H42 here on the one question counter.
+- Decision: A root `.gitattributes` (PR #31) sets `* text=auto eol=lf`, CRLF for `.bat/.cmd/.ps1/.psd1/.vbs`, and marks images, PDF, zip, xlsx and CAD files (STEP, STL, 3MF, f3d) binary. Same base rules as workstation and handbuilt-cad. `.gitattributes` is the enforcer.
+- Rejected: per-clone `core.autocrlf` settings.
+- Supersedes: none.
+- Reopen if: a tool needs CRLF files.

@@ -80,3 +80,6 @@
 - [closed 2026-11-23] 2026-11-23 Fusion Compute vs local Fusion: local desktop Fusion for tests and use (ADR-042, H36a).
 - [closed 2026-11-23] 2026-11-22 F3D fork / test copy keep-or-remove: kept (H23a line below it).
 - 2026-11-23 (drift watch): the 2026-11-22 AP214/AP242 line and the 2026-11-23 AP242 line are the same open item; track it as one.
+- 2026-11-23 (drift watch 3): worker PRs #30 and #31 merged past state-check WARNs. Briefs must say: sync-only PRs use the `no-state-change` label or `State: no change`; run state-closeout (fill the branch STATE) before `archive-branch`; Latest_ADR and Spec_Ref must be real values.
+- 2026-11-23 (drift watch 3, repeated mistake, coordinator): branch STATE files for #26-#29 were archived as unfilled init stubs. Fill the branch STATE before archiving.
+- 2026-11-23 (drift watch 3): PR #31 body has an unexplained line "checked, nothing re-added" (source unknown; not acted on).
