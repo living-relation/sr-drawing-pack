@@ -416,3 +416,21 @@ exported, closed without saving. Scripts: `research/real-test/`. Outputs stay in
   re-export the PDM asks for at approval (ADR-022) with no Fusion seat on the PDM side. Not tested; access and cost unknown.
 - **handbuilt-cad `tools/viewer.py`** writes a spin-around 3D viewer as one HTML file: a candidate for viewing
   models in the vault without any install. `tools/views.py` has a small z-buffer renderer.
+
+## Fast-view draft package on the reference assembly (2026-11-23)
+
+ADR-030 fast views on the reference assembly (ADR-031), with sr-export's `bom.json` (ADR-029). sr-export's own
+sidecar code was run inside Fusion on the open design (0.9 s, design not modified). Script: `research/real-test/fast_sheet.py`.
+
+| Item | Result | Evidence |
+|---|---|---|
+| sr-export `bom.json` | PASS | 155 rows, schema `sr-bom-sidecar` v1. Top-level rows (occurrence path with no `+`): 45 rows, 147 parts, matching the STEP. |
+| Views (front, top, right, trimetric) | PASS | 2.9, 2.6, 3.4 and 7.0 s after a 17 s STEP import and 3.8 s meshing. Visible edges only; tangent edges in the trimetric only. |
+| Two-sheet PDF and DXF | PASS | Sheet 1 views at 1:2.5 (trimetric 1:3, labelled); sheet 2 the 45-row BOM. Render 11.6 s. |
+| F3D thumbnails, one per top-level row | PASS | 45 of 45, none failed; median 0.46 s, slowest 11.9 s (a PCB), 56 s in all. Settles H25 on speed and stability. |
+| BOM material column | FAIL as data | Fusion says "ALUMINUM 6061" on bought parts and PCBs. Needs the spec-file override (ADR-002). |
+| BOM rows linked to parts in views | NOT DONE | The fast method returns one set of lines for the whole assembly. Loading each part as its own shape gives per-part lines; next step. |
+| Dimensions, balloons, rev table | NOT DONE | Draft only. |
+
+- Whole run, views and both sheets: about 50 s; with thumbnails about 2 minutes. The exact method never finished one view.
+- The top assembly's own part number is not in `bom.json` (it lists the parts). Taken from Fusion separately for this test.
