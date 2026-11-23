@@ -17,4 +17,4 @@ pivot, a blocker, a milestone and a PR.
 
 Only `[NEXT]` may stay in a STATE file. STATE is 30 lines at most and is overwritten, never appended.
 
-Enforcer: `state_lint.py` (run by state-closeout; by the git pre-commit hook once the hook pack is installed).
+Enforcer: `state_lint.py` (run by state-closeout and by the git pre-commit hook from the workstation hook pack).

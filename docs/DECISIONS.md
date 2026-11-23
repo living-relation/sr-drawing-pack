@@ -334,3 +334,19 @@ Entry format: ID, Status, Context, Decision, Rejected, Supersedes, Reopen if.
 - Rejected: one fixed method for all views; a mesh body drawn from its triangles.
 - Supersedes: refines ADR-030 and ADR-039.
 - Reopen if: tests on simple and large models show a mode that looks wrong.
+
+## ADR-041: ADR-028 supersedes ADR-008 (2026-11-23)
+- Status: Accepted
+- Context: ADR-028 dropped reading the .f3d, but did not name ADR-008 ("generate from f3d when possible"), so the two read as a conflict (drift watcher, 2026-11-23).
+- Decision: Views and data come from the STEP plus sr-export's `<name>.bom.json` (ADR-028, ADR-029). The app never reads the .f3d. This entry only records the lineage; no new choice.
+- Rejected: editing ADR-008 or ADR-028 in place (DECISIONS is append-only).
+- Supersedes: ADR-008.
+- Reopen if: ADR-028 is reopened.
+
+## ADR-042: Render-test inputs, Fusion host, tangent "partial", anti-aliasing (2026-11-23, Daniel)
+- Status: Accepted
+- Context: Render tests (ADR-040) needed models, a Fusion host, and the meaning of "partial" tangent edges (H35-H38, H40).
+- Decision: Test models come from Daniel's Spark hub: filament cabinet, RTR, AOI, PDM, fuse boxes and the fuel hanger (H35c). Tests and exports run in local desktop Fusion, the way engineers will use the app (H36a). "Partial" tangent edges hide the start and end segments of each tangent edge, as SOLIDWORKS "Hide ends" does (H37, from SOLIDWORKS help "Tangent Edge Display Overview"). FAST DRAFT is row 5: mesh creases plus silhouettes (H38a). The render tests include the anti-aliasing fixes: mesh made finer as the view scale grows, true arcs and circles, and supersampled PNG and thumbnail output (H40a).
+- Rejected: Fusion Compute for tests (the workstation root guide prefers it in general; this repo's use is desktop); a thin phantom-font style as "partial" (that is SOLIDWORKS "Use font").
+- Supersedes: refines ADR-040 (what "partial" draws).
+- Reopen if: engineers use the app headless, or "Hide ends" looks wrong in tests.

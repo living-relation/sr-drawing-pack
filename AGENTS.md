@@ -2,11 +2,27 @@
 
 This is the only agent rules file in the repo. Do not add a CLAUDE.md or any other agent file; put rules here.
 
+## Read first, before starting work or asking
+Before starting work or asking the maintainer anything, read in order: (1) this repo's agent guide
+(`AGENTS.md`), (2) its decisions file `docs/DECISIONS.md`, (3) the project's live state in
+the shared store, `<Projects>\_claude\Claude Projects\Working Memory\memory\sr-drawing-pack\`: `STATE.md`
+and this branch's `STATE-<slug>.md` (WSL: that same folder under the Windows Projects root), (4) that
+folder's `INDEX.md` (preference and fact notes). If a rule or note already answers a question, act on
+it and cite it - never ask the maintainer something the rules already answer.
+Tiers: this repo holds the router `AGENTS.md`, SPEC, DECISIONS, rules and data; the store folder holds
+live state (`STATE.md`, `STATE-<slug>.md`, `BACKLOG.md`, `archives\`) and notes; `TASK.md` is the
+branch checklist at the worktree root, git-ignored. At 80% context, run `state-closeout` (closeout
+mode); on-demand handoff: `state-closeout handoff`; no handoff files in the repo. Store unreachable
+(PC offline, cloud session): work from committed docs only. Claude desktop online Memory is a
+separate account-level list and is not this store.
+Project memory: <Projects>\_claude\Claude Projects\Working Memory\memory\sr-drawing-pack\INDEX.md
+
 ## Read order
 1. This file.
 2. `docs/DECISIONS.md` (why). Never skipped.
 3. `docs/SPEC.md` (milestones, done criteria and requirements).
 4. Live state in the store (see the role table). Store unreachable (PC offline, cloud session): work from committed docs.
+5. The store's `sr-drawing-pack/INDEX.md` (preference and fact notes).
 
 ## Role table
 | Role | Location |
@@ -25,7 +41,7 @@ handoff notes in this repo.
 
 ## Map
 - `.claude/rules/drawing-style.md`: how every sheet is made (read before making a drawing).
-- `docs/RESEARCH.md`: test evidence. `docs/REFERENCES.md`: read-only sources and licenses. `docs/DATA-CARD.md`: draft data card schema.
+- `docs/RESEARCH.md`: test evidence. `docs/REFERENCES.md`: read-only sources and licenses. `docs/DATA-CARD.md`: superseded by ADR-032; kept only as reference for the sparkCAD PDM app (product data management, no repo yet; not the `custom-pdm` power distribution repo).
 - `research/fusion-tests/`: one-off test scripts. They need the `SRDP_ROOT` environment variable (path to your clone).
 - `research/spike-b/`: spike B scripts. `views_row.py` and `styled_sheet.py` need `HBCAD_ROOT` (path to a handbuilt-cad clone) and that clone's Python.
 - `research/editor-slice/`: first clickable editor screen (local web page + server). `research/assembly-test/`: test assembly and its drawing package. Each has a README.
@@ -52,7 +68,7 @@ handoff notes in this repo.
 - This repo is only the drawing generator: make rule-following drawings, give the editing features, and
   export the needed file types (ADR-012, ADR-020).
 - Vault, numbering, approval workflow, check-in/out, rev stamping and fab-floor viewing belong to the
-  separate sparkCAD / PDM app. Do not plan or build those here. Expose clean hooks instead, for example
+  separate sparkCAD / PDM app (product data management; no repo yet; not the `custom-pdm` repo). Do not plan or build those here. Expose clean hooks instead, for example
   "re-export with rev X filled in".
 - Flag anything that drifts past that before building it.
 
@@ -72,10 +88,11 @@ handoff notes in this repo.
 - Never call sheets or views APIs on a drawing that has no model reference. It hung Fusion once.
 - `execute_python` runs on Fusion's main thread: a hang kills the MCP. Keep calls short.
 - The Fusion lock is retired (Daniel, 2026-11-22). Do not take or check it.
+- Tests and exports use local desktop Fusion, the way engineers will use the app, not Fusion Compute (ADR-042).
 - Do not start or stop the workstation workers.
 - Nothing is installed into Fusion's AddIns folder until Daniel approves an iteration. When approved,
   install by a directory junction from AddIns to the add-in folder in the clone (same as sr-bom,
-  sr-export, sr-fastener, sr-drawing-pdf), so the workstation add-in updater can pull it.
+  sr-export, sr-fastener, sr-drawing-pdf).
 
 ## Asking Daniel
 - Multiple choice, one letter plus a number (A1, B2), with a recommendation. Never ask what DECISIONS,
