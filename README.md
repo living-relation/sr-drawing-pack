@@ -1,6 +1,6 @@
 # SR Drawing Pack
 
-**Status: research and tests (milestone M1 done in decisions, M2 not started). Nothing here is usable yet.**
+**Research stage: not ready for use. Milestones and done criteria are in `docs/SPEC.md`.**
 
 Goal: a drawing editor for Autodesk Fusion designs in the handbuilt-cad sheet style (title block, revision
 table, the drawing's own BOM). The app drafts most of the drawing from the model; the engineer has full

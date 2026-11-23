@@ -1,4 +1,5 @@
 ---
+paths: ["research/**", "docs/RESEARCH.md"]
 description: House drawing style for every sheet this repo makes or tests (template, views, labels, dimensions, holes, render modes). Read before making or changing any drawing.
 ---
 # Drawing style (how every sheet is made)
@@ -24,7 +25,8 @@ Source: Daniel's instruction of 2026-11-22 (follow the style note), reconciled w
   from its creases and silhouettes, never from its triangles.
 - Render modes per view (ADR-040): UHQ exact B-rep, HQ fast joined, DRAFT fast pieces, FAST DRAFT mesh creases and
   silhouettes. Released files use HQ or UHQ.
-- Tangent edges: three settings per view, hidden, drawn or partial (ADR-040). Default: drawn, thin solid, in every
+- Tangent edges: three settings per view, hidden, drawn or partial (ADR-040). Partial hides the start and end
+  segments of each tangent edge, like SOLIDWORKS "Hide ends" (ADR-042). Default: drawn, thin solid, in every
   view (this differs from handbuilt-cad DRAWING-RULES 16 on purpose).
 - Centre marks on every visible hole and on arcs of 150 deg or more.
 - Third-angle projection: top above front, right to the right, aligned.

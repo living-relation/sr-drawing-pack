@@ -1,0 +1,93 @@
+# automation.yml: every script, workflow and hook in this repo, one entry each.
+# Format: workstation-core git-checker "Automation registry". Research scripts are manual and write only to
+# research/_local/ (git-ignored), never to tracked files.
+generated_patterns: ["**/*.pdf", "**/*.dxf", "**/*.png", "**/*.step", "**/*.stp"]
+ignore: ["research/_local/**"]
+handmade: ["docs/**"]
+automations:
+  - id: state-check
+    script: .github/workflows/state-check.yml
+    helpers: [.github/state-check.sh, .github/registry-check.py]
+    trigger: pr-check
+    reads: ["**"]
+    writes: []
+    committed: yes
+    auto_commit: false
+    enabled: true
+    run_cmd: bash .github/state-check.sh origin/main HEAD
+    owner: workstation-core
+  - id: fusion-tests
+    script: research/fusion-tests/run.ps1
+    helpers: [research/fusion-tests/fx.py, research/fusion-tests/t0.py, research/fusion-tests/t1.py, research/fusion-tests/t2.py,
+              research/fusion-tests/t3.py, research/fusion-tests/t4.py, research/fusion-tests/t5.py, research/fusion-tests/t6.py,
+              research/fusion-tests/t7.py, research/fusion-tests/t8.py, research/fusion-tests/t9.py, research/fusion-tests/t10.py,
+              research/fusion-tests/t11.py]
+    trigger: manual
+    reads: ["research/fusion-tests/*.py"]
+    writes: ["research/_local/**"]
+    committed: gitignored
+    auto_commit: false
+    enabled: true
+    run_cmd: powershell -File research/fusion-tests/run.ps1
+    owner: claude
+  - id: spike-b
+    script: research/spike-b/styled_sheet.py
+    helpers: [research/spike-b/views_row.py, research/spike-b/editor_model.py, research/spike-b/fusion_export_step.py]
+    trigger: manual
+    reads: ["research/spike-b/*.py"]
+    writes: ["research/_local/**"]
+    committed: gitignored
+    auto_commit: false
+    enabled: true
+    owner: claude
+  - id: editor-slice
+    script: research/editor-slice/server.py
+    helpers: [research/editor-slice/docmodel.py, research/editor-slice/test_slice.py]
+    trigger: manual
+    reads: ["research/editor-slice/*.py"]
+    writes: ["research/_local/**"]
+    committed: gitignored
+    auto_commit: false
+    enabled: true
+    check_cmd: python research/editor-slice/test_slice.py
+    owner: claude
+  - id: assembly-test
+    script: research/assembly-test/make_package.py
+    helpers: [research/assembly-test/build_assembly.py, research/assembly-test/check_step_tree.py, research/assembly-test/dxf_out.py,
+              research/assembly-test/model_data.py]
+    trigger: manual
+    reads: ["research/assembly-test/*.py"]
+    writes: ["research/_local/**"]
+    committed: gitignored
+    auto_commit: false
+    enabled: true
+    owner: claude
+  - id: fusion-data-export
+    script: research/fusion-data/export_step_and_data.py
+    trigger: manual
+    reads: ["research/fusion-data/*.py"]
+    writes: ["research/_local/**"]
+    committed: gitignored
+    auto_commit: false
+    enabled: false   # retired: sr-export writes the data file (ADR-029)
+    owner: claude
+  - id: thumbnails
+    script: research/thumbnails/bom_thumbnails.py
+    trigger: manual
+    reads: ["research/thumbnails/*.py"]
+    writes: ["research/_local/**"]
+    committed: gitignored
+    auto_commit: false
+    enabled: true
+    owner: claude
+  - id: real-test
+    script: research/real-test/fast_sheet.py
+    helpers: [research/real-test/chain_test.py, research/real-test/compare_methods.py, research/real-test/face_budget.py,
+              research/real-test/hlr_speed.py]
+    trigger: manual
+    reads: ["research/real-test/*.py"]
+    writes: ["research/_local/**"]
+    committed: gitignored
+    auto_commit: false
+    enabled: true
+    owner: claude
