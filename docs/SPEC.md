@@ -23,9 +23,9 @@ add and remove sheets, linked BOM copies, per-view auto annotate. The decision r
 |---|---|---|
 | A | Can a native Fusion drawing carry the target style? Test a custom drawing template (sheet 1 title block, simpler continuation sheet), creating a drawing from it through the API, native parts list modes, native revision support (re-test the preview revision table and title block API), custom tables for thumbnails, and a views row: base + projected + iso, plus section and detail. | Pass / fail per requirement group, with evidence. |
 | B | Size a custom editor on the handbuilt-cad engine (view model, drag and projection rules, sheet model, linked BOM), with a views row: base + projected + iso, plus section and detail. Evidence for the sheet, BOM and rev table parts comes from sr-drawing-pdf's sheet editor (its view frames are empty); that spike is not repeated here (ADR-020). | Written estimate and the list of hard parts. |
-| C | Engine output opened in an existing 2D CAD editor via DXF. Record which links survive. | Pass / fail per requirement group. |
 
-Still open inside M1: how a picked view becomes 2D hidden-line geometry (ADR-021).
+Spike C (DXF into an existing 2D CAD editor) was dropped on 2026-11-23 (Daniel): the editor is our own (ADR-024).
+How a picked view becomes 2D geometry: from STEP with the engine (ADR-028); method per model type: ADR-030, ADR-039.
 
 ### M2 list
 
@@ -44,6 +44,14 @@ Still open inside M1: how a picked view becomes 2D hidden-line geometry (ADR-021
 - Port to the Spark Robotic team account on the work PC.
 
 ## Requirements (captured from Daniel, 2026-11-19)
+
+### Workflow (Daniel, 2026-11-22, added to SPEC 2026-11-23)
+
+- At creation the user picks the style, sheets, sheet size, default views and an auto-dimension scheme.
+- The app then generates most of the drawing: default views placed, automatic dimensions, automatic annotation.
+- The engineer has full control over everything already on the sheet, and adds sheets and detail views as needed.
+- The editor has built-in agent help or automation for when the engineer wants help while editing.
+- Why: ADR-024. The editor is a separate window opened from Fusion (ADR-037).
 
 ### Review rule
 
