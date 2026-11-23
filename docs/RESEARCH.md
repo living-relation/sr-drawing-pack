@@ -1,6 +1,6 @@
 # Research and test results (2026-11-19)
 
-Tested on DansPC, Fusion 2706.1.17, through the autodesk-fusion-mcp add-in (`execute_python`).
+Tested on the test PC, Fusion 2706.1.17, through the autodesk-fusion-mcp add-in (`execute_python`).
 Each tool's own code was run inside Fusion against a throwaway test plate (80 x 50 x 10 mm, four
 6 mm holes, one pocket). No tool was installed as a Fusion add-in, so their buttons and dialogs are
 untested. Test scripts: `research/fusion-tests/` (paths were rewritten after the move and not re-run).
@@ -82,7 +82,7 @@ Background on where the drawings are used. The PDM and Fusion handle these, not 
 
 ## Spike A live results: native Fusion drawing through the API (2026-11-21)
 
-Tested on DansPC, Fusion 2706.1.17, through Fusion's built-in MCP (script tool). Scratch design
+Tested on the test PC, Fusion 2706.1.17, through Fusion's built-in MCP (script tool). Scratch design
 `SRDP_SCRATCH_spikeA` (80 x 50 x 10 mm plate, four 6 mm through holes, one 20 x 20 x 4 mm pocket on
 the bottom face) in the `_drawtest_tmp` folder. Scratch design and drawing were closed without saving
 and deleted from the cloud afterwards. Every `adsk.drawing` call used is a Preview feature.
@@ -119,7 +119,7 @@ What this means for M1:
 
 ## Spike B results: custom editor on the handbuilt-cad engine (2026-11-21)
 
-Tested on DansPC. Engine: handbuilt-cad `drawing/dwg.py`, imported read-only, run out of process with
+Tested on the test PC. Engine: handbuilt-cad `drawing/dwg.py`, imported read-only, run out of process with
 that clone's Python 3.13 (build123d 0.13.0, ezdxf 1.4.4, matplotlib 3.11.2). Scripts:
 `research/spike-b/` (`views_row.py`, `editor_model.py`, `fusion_export_step.py`). Outputs stay in
 `research/_local/out/spike-b/` (not committed). Same test plate as spike A.
@@ -295,7 +295,7 @@ Test assembly `SRDP-T-100` (base plate, cover sub-assembly with handle, stop blo
 
 ## Fusion data file with the STEP, and the F3D viewer (2026-11-22)
 
-Tested on DansPC, Fusion 2706.1.17 through Fusion's built-in MCP, and F3D 4.0.1 (portable release,
+Tested on the test PC, Fusion 2706.1.17 through Fusion's built-in MCP, and F3D 4.0.1 (portable release,
 unpacked in a scratch folder, not installed). Script: `research/fusion-data/export_step_and_data.py`.
 Outputs stay in `research/_local/out/fusion-data/`.
 

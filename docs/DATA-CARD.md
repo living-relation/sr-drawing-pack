@@ -1,5 +1,5 @@
 > **Superseded (ADR-032, 2026-11-23):** the data card is the PDM's job, not this app's. This file is kept
-> only as reference for the sparkCAD PDM app (product data management, being built elsewhere per Daniel 2026-11-19; its repo and owner are not visible from this workstation; not the `custom-pdm` power distribution repo); nothing in this repo writes it.
+> as reference for any repo that wants it (Daniel, 2026-11-23, H39; ADR-043); nothing in this repo writes it.
 
 # SR data card (`<part number> <description>.sr.json`), draft 2
 

@@ -2,7 +2,7 @@
 Repo: sr-drawing-pack
 Branch: main
 Last_Verified_SHA: none
-Updated: 2026-11-23 -- Claude worker (moved from the store into the repo)
+Updated: 2026-11-23 -- Claude (claude.ai chat), drift watch run 2 repairs
 
 ## Current Goal
 - Objective: M1 decided (editor ADR-024/037; views from STEP + sr-export bom.json ADR-028/029; render modes ADR-040/042). Now: render tests on Spark hub models in local desktop Fusion (H34b, ADR-042), then the M2 build plan for Daniel's yes. Single coordinator: the claude.ai "Fusion SR Drawing Tool" project chat. Drift watcher re-runs every 4 h (send_later in this chat).
@@ -18,6 +18,6 @@ Updated: 2026-11-23 -- Claude worker (moved from the store into the repo)
 ## Pointers
 - Branch_States: generated (state_manager.py branches)
 - Backlog: BACKLOG.md
-- Latest_ADR: ADR-042
-- Last_Cleanup: 2026-11-23 @ ba08c78
+- Latest_ADR: ADR-043
+- Last_Cleanup: 2026-11-23 @ 7f6aea5
 - Question_Counter: H41

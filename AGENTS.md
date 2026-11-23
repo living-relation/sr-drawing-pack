@@ -19,11 +19,8 @@ separate account-level list and is not this store.
 Project memory: <Projects>\_claude\Claude Projects\Working Memory\memory\sr-drawing-pack\INDEX.md
 
 ## Read order
-1. This file.
-2. `docs/DECISIONS.md` (why). Never skipped.
-3. `docs/SPEC.md` (milestones, done criteria and requirements).
-4. Live state in this repo: `STATE.md` and this branch's `STATE-<slug>.md` at the repo root (see the role table).
-5. The store's `sr-drawing-pack/INDEX.md` (notes only: preferences, machine facts, gotchas). Store unreachable (PC offline, cloud session): live state is still in the repo; only notes are missing.
+As in "Read first" above, with `docs/SPEC.md` (milestones, done criteria and requirements) read after DECISIONS.
+DECISIONS is never skipped.
 
 ## Role table
 | Role | Location |
@@ -46,7 +43,7 @@ fails a PR that leaves a top-level `STATE-*.md`. The store path comes from
 
 ## Map
 - `.claude/rules/drawing-style.md`: how every sheet is made (read before making a drawing).
-- `docs/RESEARCH.md`: test evidence. `docs/REFERENCES.md`: read-only sources and licenses. `docs/DATA-CARD.md`: superseded by ADR-032; kept as reference for any repo that wants it (Daniel, 2026-11-23, H39).
+- `docs/RESEARCH.md`: test evidence. `docs/REFERENCES.md`: read-only sources and licenses. `docs/DATA-CARD.md`: superseded by ADR-032; kept as reference for any repo that wants it (Daniel, 2026-11-23, H39; ADR-043).
 - `research/fusion-tests/`: one-off test scripts. They need the `SRDP_ROOT` environment variable (path to your clone).
 - `research/spike-b/`: spike B scripts. `views_row.py` and `styled_sheet.py` need `HBCAD_ROOT` (path to a handbuilt-cad clone) and that clone's Python.
 - `research/editor-slice/`: first clickable editor screen (local web page + server). `research/assembly-test/`: test assembly and its drawing package. Each has a README.
