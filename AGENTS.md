@@ -30,6 +30,7 @@ handoff notes in this repo.
 - `research/editor-slice/`: first clickable editor screen (local web page + server). `research/assembly-test/`: test assembly and its drawing package. Each has a README.
 - `research/fusion-data/`: Fusion script that exports a STEP and a data file together (ADR-028). Needs `SRDP_FUSION_DATA_OUT`.
 - `research/thumbnails/`: BOM thumbnails from a STEP with the F3D viewer. Needs `F3D_EXE` (path to f3d.exe).
+- `research/real-test/`: whole-chain test on a real Fusion design, and the hidden-line speed test (`hlr_speed.py`).
 
 ## Coordination
 - One coordinator chat owns the root STATE. Workers are dispatched from it, one branch each, each with
