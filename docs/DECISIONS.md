@@ -250,3 +250,43 @@ Entry format: ID, Status, Context, Decision, Rejected, Supersedes, Reopen if.
 - Rejected: only small test assemblies.
 - Supersedes: none
 - Reopen if: Daniel names another reference design.
+
+## ADR-032: Data card and output formats (2026-11-23, Daniel's answers of 2026-11-20)
+- Status: Accepted. DXF is open.
+- Context: Daniel's 2026-11-20 answers were not recorded (workstation-core coordinator-kit: record every answer in its home the same turn).
+- Decision: The data card is not the app's job: the PDM makes and keeps it, pulls most data from the imported files, and the user fills in the rest; its history is the PDM's too. File control and locking are the PDM's. The app's lane is the STEP and the drawing, ready for a PDM, with a hand-off modelled on Fusion Manage and SOLIDWORKS PDM. Output: PDF for sure, no DWG. DXF is undecided; Daniel expects it for CNC laser and router cutting.
+- Rejected: the app writing the data card (ADR-014, ADR-022).
+- Supersedes: the data-card parts of ADR-014 and ADR-022; the "PDF and DXF" export of ADR-018 becomes "PDF; DXF open".
+- Reopen if: the PDM needs the app to write a card.
+
+## ADR-033: Hidden lines never drawn, no per-view switch (2026-11-23)
+- Status: Accepted
+- Context: Question H4. handbuilt-cad DRAWING-RULES 14 and its AGENTS.md rule 5 say never show hidden lines; ADR-007 makes that house style the target.
+- Decision: No view ever shows hidden lines. There is no per-view "show hidden" switch; a hidden feature is shown with a section or detail.
+- Rejected: a per-view switch, off by default.
+- Supersedes: the open point of ADR-025.
+- Reopen if: Daniel asks for hidden lines on a view.
+
+## ADR-034: Sub-assemblies, hole positions, tapped holes (2026-11-23)
+- Status: Accepted
+- Context: Questions H15, H16, H17. handbuilt-cad skill cad-drawing and DRAWING-RULES 21a and 40; Daniel's 2026-11-22 drawing instruction.
+- Decision: A finished sub-assembly is one installation item (one balloon) in its parent package; its own parts are ballooned on the step that builds it, or in its own package. Hole positions and other fabrication-critical sizes go in dimensioned assembly sections and details, never on separate part sheets. Tapped holes are called out with thread and tap drill; through holes (plain or tapped) are THRU with no depth; blind holes show the real thread depth and the drill depth when it is deeper.
+- Rejected: ballooning every child on sheet 1; separate part sheets for hole positions; thread-only callouts.
+- Supersedes: none
+- Reopen if: a hole table is wanted as well as the sections and details.
+
+## ADR-035: Sheet scale and section labels (2026-11-23)
+- Status: Accepted
+- Context: Questions H18, H20. Daniel's 2026-11-22 instruction to follow the drawing style note (scale that fills the sheet; sections lettered and labelled). ADR-026 dropped labels only for default views.
+- Decision: The sheet scale is the largest standard scale that fits the views with room for dimensions. Section views keep their label (`SECTION A-A`) and letters, like detail views; the label adds a scale only when it differs from the sheet.
+- Rejected: a fixed 1:1; unlabelled sections.
+- Supersedes: none
+- Reopen if: none.
+
+## ADR-036: Thumbnails may live outside the drawing (2026-11-23, Daniel's answer of 2026-11-22)
+- Status: Accepted. Thumbnail source is open (H25).
+- Context: Daniel: thumbnails can live in a separate external BOM file; they are not required on the drawing sheet.
+- Decision: BOM thumbnails go in an external BOM file; the drawing's own BOM (ADR-029) does not need them. F3D tested at 45 of 45 parts, about 0.5 s each, on the reference assembly.
+- Rejected: thumbnails required on the drawing sheet.
+- Supersedes: the "on the drawing" reading of ADR-003.
+- Reopen if: Daniel wants thumbnails on the sheet.
