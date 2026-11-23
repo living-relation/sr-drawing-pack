@@ -46,7 +46,7 @@ fails a PR that leaves a top-level `STATE-*.md`. The store path comes from
 
 ## Map
 - `.claude/rules/drawing-style.md`: how every sheet is made (read before making a drawing).
-- `docs/RESEARCH.md`: test evidence. `docs/REFERENCES.md`: read-only sources and licenses. `docs/DATA-CARD.md`: superseded by ADR-032; kept only as reference for the sparkCAD PDM app (product data management, being built elsewhere per Daniel 2026-11-19; its repo and owner are not visible from this workstation; not the `custom-pdm` power distribution repo).
+- `docs/RESEARCH.md`: test evidence. `docs/REFERENCES.md`: read-only sources and licenses. `docs/DATA-CARD.md`: superseded by ADR-032; kept as reference for any repo that wants it (Daniel, 2026-11-23, H39).
 - `research/fusion-tests/`: one-off test scripts. They need the `SRDP_ROOT` environment variable (path to your clone).
 - `research/spike-b/`: spike B scripts. `views_row.py` and `styled_sheet.py` need `HBCAD_ROOT` (path to a handbuilt-cad clone) and that clone's Python.
 - `research/editor-slice/`: first clickable editor screen (local web page + server). `research/assembly-test/`: test assembly and its drawing package. Each has a README.
