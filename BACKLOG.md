@@ -1,0 +1,77 @@
+# BACKLOG (append-only queue; newest at the bottom)
+
+- 2026-11-19 (state-init): Plan step 0.4, fold docs/REQUIREMENTS.md into docs/SPEC.md. needs owner yes (SPEC is Daniel's).
+- 2026-11-19 (state-init): docs/PLAN.md still holds an open-questions table (Q1 to Q4). Move live questions to STATE / DECISIONS and drop the table.
+- 2026-11-19 (state-init): .claude/sot.json has no entries. Gap: no data file is registered yet; add title block and sheet values when they exist.
+- 2026-11-19 (SteveCAD advice): DWG from our own engine needs a converter (ezdxf writes DXF only; ODA File Converter has its own license). Decide with the format list.
+- 2026-11-19 (Daniel): Rev is blank until PDM approval. Open: who stamps the rev onto the drawing files at approval.
+- 2026-11-19 (Daniel): Part / assembly numbers must be unique and simple, and are both drawing number and model number. Open: who issues them.
+- 2026-11-19 (Daniel): Final release package per item type not decided (CNC and 3D printed items carry up to 4 file types, incl. sliced files and G-code).
+- 2026-11-19 (session): Fusion MCP showed "failed / Connection closed" from the claude.ai session; needed for plan step 1.1.
+- 2026-11-19 (plan): Q2 license, Q3 skills committed or declared, Q4 where "click thumbnail to expand" happens: still open.
+- 2026-11-19 (session): The Spark Robotic engineering data rules doc lists rev skips I, L, O; ADR-011 uses I, L, O, Q. Rules doc may need a matching edit.
+- [closed 2026-11-19] DWG converter decision: DWG dropped (ADR-018).
+- 2026-11-19 (Daniel): docs/PLAN.md, REQUIREMENTS.md and README still mention DWG export; update to match ADR-018.
+- [closed 2026-11-19] Who issues part / assembly numbers: the PDM (ADR-019).
+- [closed 2026-11-19] PLAN open-questions table moved out; Q2, Q3, Q4 answered (ADR-023).
+- [closed 2026-11-19] DWG mentions in PLAN and README updated (ADR-018).
+- [closed 2026-11-19] Rev stamp at approval: PDM calls the app to re-export (ADR-022). Package contents: PDM's job (ADR-020).
+- 2026-11-19 (Daniel): Live-test Design.namedViews in an SRDP_SCRATCH doc with the fusion-lock held (ADR-021 is doc-verified only).
+- 2026-11-19 (session): LICENSE copyright line reads "Spark Robotic" to match sr-drawing-pdf; repo is personal for now. Confirm the holder.
+- [closed 2026-11-19] LICENSE copyright holder: the repo owner (GitHub name living-relation) until hand-over to Spark Robotic (Daniel, J1b).
+- 2026-11-19 (session): The claude.ai cloud session has no Fusion MCP tools even after the MCP restart on the PC; live Fusion tests must run from a session on the PC (Claude desktop, Cursor) or after the desktop app reconnects the server.
+- [closed 2026-11-20] Plan step 0.4: REQUIREMENTS.md and PLAN.md folded into docs/SPEC.md (Daniel's yes, M1a / M3a / M4a); both files deleted.
+- 2026-11-20 (old PLAN step 0.6): add a `.mcp.json` for the Fusion MCP so a fresh agent in the repo can reach Fusion. Skills list is already in AGENTS.md.
+- 2026-11-20 (session): Claude desktop on the PC shows the Fusion MCP as "failed" although Fusion is listening on its local port; the desktop app needs a restart to reconnect.
+- [closed 2026-11-21] Live-test Design.namedViews: passed in spike A (docs/RESEARCH.md).
+- 2026-11-21 (spike B): test a real assembly end to end: Fusion STEP export of an assembly, component tree and names kept, hidden-line time, assembly section.
+- 2026-11-21 (spike B): test whether build123d loads inside Fusion's Python (decides helper process vs in-process).
+- 2026-11-21 (spike B): DXF writes every curve as a polyline; cutting DXF needs real CIRCLE / ARC entities.
+- 2026-11-21 (session-start): AGENTS.md says take the workstation fusion-lock before live tests, but fusion-lock.ps1 now says the name "fusion" takes no lock. Update the rule.
+- 2026-11-21 (session-start): Daniel's 2026-11-20 answers are not in docs/DECISIONS.md yet: custom editor chosen; data card is the PDM's job, not the app's (changes ADR-022); DXF undecided.
+- [closed 2026-11-22] fusion-lock rule in AGENTS.md: lock retired (Daniel), rule replaced (PR #9).
+- 2026-11-22 (styled sheet): engine gaps for our copy: section takes over a view slot; no BOM, group label, label offset or below-feature detail dimension in the part spec; DXF writer has no CIRCLE / ARC (docs/RESEARCH.md).
+- 2026-11-22 (Daniel): drawing style rules live only in research/_local/out/spike-b/GROK-DRAWING-STYLE-HELP.md (git-ignored). Move the agreed rules into .claude/rules/ after his yes (H7).
+
+- 2026-11-22 (editor-slice): one renderer for screen and PDF: have the engine hand its sheet item list (lines, text, hatches) to the page so title block, tables and labels are not written twice (research/editor-slice/README.md, hard part 3).
+- 2026-11-22 (editor-slice): continuation-sheet frame (smaller block, no rev table) is missing in the engine's `frame`; the slice reuses the sheet 1 frame on every sheet.
+- 2026-11-22 (editor-slice): editor screen still needs pan / zoom, snap and align, multi-select, per-view scale control, move a view between sheets, keep-out areas (title block, border), group view labels, centre marks on screen.
+- 2026-11-22 (editor-slice): untested: the page inside a Fusion palette, HTML drag-and-drop there, a real assembly (hidden-line time and polyline count sent to the page), `--step` loading.
+- 2026-11-22 (editor-slice): Windows: Desktop Commander force_terminate stops the shell, not the Python child; stop a test server by its command line. Python's HTTPServer also lets two servers share a port unless allow_reuse_address is off.
+- 2026-11-22 (assembly-test): engine gaps for our copy, from the assembly test (13, listed in research/assembly-test/README.md, PR #12): no assembly section, detail, hole callout, centre mark or cutting-plane line; one-direction hatch; no tap drill on through tapped holes; no sub-assembly or indented BOM; no continuation title block; BOM text width underestimated; no minimum flat-view scale.
+- 2026-11-22 (assembly-test): hole positions are not dimensioned anywhere in an assembly-only package; needs a plan view per made part or a hole table.
+- 2026-11-22 (assembly-test): build123d export_step writes AP214 (AUTOMOTIVE_DESIGN); handbuilt-cad model rule 37 asks for AP242. Check what Fusion exports and whether it matters.
+- 2026-11-22 (assembly-test): build123d import_step changes spaces and dots in component names to underscores; read real names from the STEP text (check_step_tree.py does). Sub-assembly BOM style (balloon item 2 as one, children on the build step) needs a yes from Daniel.
+- 2026-11-22 (Daniel): idea: pull BOM, hole / thread data and other design data from Fusion at the moment the STEP is exported (sidecar file). Fusion API has it: HoleFeature.holeTapType / tappedHoleInfo, ThreadFeature.threadLength, ThreadInfo (designation, class, tap drill). Not tested live. Decide with H19.
+- [closed 2026-11-22] Fusion data at STEP export: tested live, ADR-028 (PR #15).
+- 2026-11-22 (fusion-data): data file still to prove on a real hub design: sub-assemblies, linked components, counterbores, saved views; filter each component's holes by the body they cut.
+- 2026-11-22 (F3D): F3D 4.0.1 command line makes STEP thumbnails in 0.45 s; candidate for BOM thumbnails (ADR-003). Fork clone at `<projects>\active\f3d`, portable test copy at `<scratch>\f3d-test` (local scratch folder); keep or remove per H23.
+- 2026-11-22 (Daniel, H23a): keep the F3D fork clone (`<projects>\active\f3d`) and the portable test copy (`<scratch>\f3d-test`).
+- 2026-11-22 (thumbnails): engine sheet has no image item, so thumbnails cannot sit in the BOM on the drawing sheet yet; F3D would be a per-PC dependency (about 70 MB).
+- 2026-11-22 (Daniel): thumbnails may live in a separate external BOM file; they are not required on the drawing sheet. Thumbnail source (H25): decide after a speed and stability test on a real Fusion STEP; F3D is the likely pick. Record as an ADR with the next decisions PR.
+- 2026-11-22 (real test): exact HLR unusable on real assemblies (no view in 7 min); polygonal HLR 2.5-7.3 s per view. PR #17.
+- 2026-11-22 (real test): research/fusion-data/export_step_and_data.py duplicates sr-export's <name>.bom.json sidecar; use the sidecar (H28).
+- 2026-11-22 (real test): sidecar lacks occurrence visibility (light bulb); needed for per-view hide lists. sr-export change, ask Daniel (H29).
+- 2026-11-22 (ideas): Fusion attributes on faces/edges for annotations that survive edits; Fusion Compute MCP for PDM re-export at approval; handbuilt-cad tools/viewer.py as a no-install 3D viewer for the vault (PDM project).
+- 2026-11-23 (fast sheet, PR #19): F3D thumbnails 45/45 on the reference assembly, median 0.46 s, max 11.9 s; H25 test done, recommend F3D.
+- 2026-11-23 (fast sheet): bom.json lacks the top assembly's own part number; sr-export change candidate.
+- 2026-11-23 (Daniel): always restate every open question in full (saved to project preferences).
+- 2026-11-23 (rules check): H7 answered by the state protocol ([RULE] -> .claude/rules/): move the style rules from research/_local/out/spike-b/GROK-DRAWING-STYLE-HELP.md into .claude/rules/drawing-style.md, reconciled with ADR-026 and ADR-033 (next PR).
+- 2026-11-23 (rules check): projects root AGENTS.md prefers Fusion Compute MCP (headless) over local Fusion; this project used local Fusion for every live test. Repeated; switch.
+- 2026-11-23 (rules check): handbuilt-cad models folder takes AP242 STEP only; check which STEP schema Fusion / sr-export writes.
+- [closed 2026-11-23] H7a: drawing style now in .claude/rules/drawing-style.md (PR #23).
+- 2026-11-23 (Daniel): view palette like the SOLIDWORKS View Palette; exploded views with trail lines; auxiliary, section, detail, broken, broken-out and crop views. Methods in docs/RESEARCH.md; build in M2/M3.
+- 2026-11-23 (render modes): mode-picker thumbnails made from the lid test (research/_local/out/real-test/compare/mode_*.png); FAST DRAFT curved outlines break into dashes, tune.
+- 2026-11-23 (compliance): editor-slice built 'keep gap on scale change'; ADR-037 says views stay put. Fix when the editor is built.
+- 2026-11-23 (compliance): sr-export bom.json lacks named views and the top assembly's own part number; sr-export changes with visibility (H29a).
+- [closed 2026-11-23] 2026-11-19 final release package per item type: the PDM's job (ADR-032).
+- [closed 2026-11-23] 2026-11-21 real assembly end to end: done (ADR-031, PR #17, real test).
+- [closed 2026-11-23] 2026-11-21 Daniel's 2026-11-20 answers not in DECISIONS: recorded (ADR-024, ADR-032).
+- [closed 2026-11-23] 2026-11-22 hole positions in assembly packages; import_step name changes: settled (ADR-034).
+- [closed 2026-11-23] 2026-11-22 F3D thumbnails, external BOM thumbnails, 2026-11-23 F3D 45/45: settled (ADR-036, ADR-039).
+- [closed 2026-11-23] 2026-11-22 exact HLR unusable on real assemblies: settled (ADR-030, ADR-040).
+- [closed 2026-11-23] 2026-11-22 export_step_and_data.py duplicates sr-export: retired (ADR-029; disabled in automation.yml).
+- 2026-11-23 (drift watcher): workstation git-checker SKILL.md names hooks/automation.example.yml, which does not exist in the workstation repo. Flag for a workstation PR.
+- 2026-11-23 (Daniel H37): SOLIDWORKS also has 'Use font' (tangent edges in a thinner line font). Possible 4th tangent setting; not asked for.
+- [closed 2026-11-23] 2026-11-23 git-checker names hooks/automation.example.yml: it exists (workstation skills/git-checker/hooks/automation.example.yml; the path is relative to the skill folder). No workstation PR needed.
+- 2026-11-23 (state-in-repo migration): docs/SPEC.md M0 done criterion still says "STATE, BACKLOG, archives exist in the store"; since decision 2026-11-22 they live at the repo root. needs owner yes (SPEC is Daniel's).

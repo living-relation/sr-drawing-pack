@@ -16,6 +16,17 @@ automations:
     enabled: true
     run_cmd: bash .github/state-check.sh origin/main HEAD
     owner: workstation-core
+  - id: state-files-gate
+    script: .github/workflows/state-files-gate.yml
+    helpers: [.github/state-files-gate.sh]
+    trigger: pr-check
+    reads: ["STATE-*.md"]
+    writes: []
+    committed: yes
+    auto_commit: false
+    enabled: true
+    run_cmd: bash .github/state-files-gate.sh HEAD
+    owner: workstation-core
   - id: fusion-tests
     script: research/fusion-tests/run.ps1
     helpers: [research/fusion-tests/fx.py, research/fusion-tests/t0.py, research/fusion-tests/t1.py, research/fusion-tests/t2.py,
