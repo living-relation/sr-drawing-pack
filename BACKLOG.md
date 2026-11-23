@@ -75,3 +75,4 @@
 - 2026-11-23 (Daniel H37): SOLIDWORKS also has 'Use font' (tangent edges in a thinner line font). Possible 4th tangent setting; not asked for.
 - [closed 2026-11-23] 2026-11-23 git-checker names hooks/automation.example.yml: it exists (workstation skills/git-checker/hooks/automation.example.yml; the path is relative to the skill folder). No workstation PR needed.
 - 2026-11-23 (state-in-repo migration): docs/SPEC.md M0 done criterion still says "STATE, BACKLOG, archives exist in the store"; since decision 2026-11-22 they live at the repo root. needs owner yes (SPEC is Daniel's).
+- [closed 2026-11-23] H39: keep docs/DATA-CARD.md here as reference for any repo that wants it (Daniel).

@@ -9,8 +9,8 @@ Updated: 2026-11-23 -- Claude worker (moved from the store into the repo)
 - Spec_Ref: docs/SPEC.md#milestones-and-done-criteria
 
 ## Active Blocker
-- Status: BLOCKED
-- Detail: waiting on Daniel: H39 (where docs/DATA-CARD.md goes: sparkCAD PDM app repo and owner not visible here)
+- Status: NONE
+- Detail: none (H41 SPEC wording waits on Daniel; not blocking)
 
 ## Next Single Step
 - [NEXT] Find the test models in the Spark hub (filament cabinet, RTR, AOI, PDM, fuse boxes, fuel hanger), export STEP + bom.json with sr-export in local Fusion, run UHQ/HQ/DRAFT/FAST DRAFT with tangent drawn and the anti-aliasing fixes; results to docs/RESEARCH.md
