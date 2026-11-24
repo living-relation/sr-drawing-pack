@@ -10,7 +10,7 @@ Updated: 2026-11-24 -- Claude (claude.ai chat, coordinator, working this branch)
 
 ## Active Blocker
 - Status: BLOCKED
-- Detail: waiting on Daniel: H55 (which two modes and names), H53 (PDM external-reference STEP: load Parts or skip)
+- Detail: waiting on Daniel: H55 (which two modes and names), H53 (PDM external-reference STEP: load Parts or skip), H56 (fix UHQ/FAST outlines or drop them)
 
 ## Next Single Step
 - [NEXT] When research/_local/out/render-tests/queue.log (CC-000 panel) and queue2.log (11 more models-folder STEPs, Daniel 2026-11-24: larger sample) end, run compile_results.py, rate each compare sheet, update docs/RESEARCH.md "All render tests compared", then ask H55
@@ -19,4 +19,4 @@ Updated: 2026-11-24 -- Claude (claude.ai chat, coordinator, working this branch)
 - Branch_States: generated (state_manager.py branches)
 - Backlog: BACKLOG.md
 - Latest_ADR: ADR-048
-- Question_Counter: H55
+- Question_Counter: H56
