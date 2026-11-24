@@ -366,3 +366,19 @@ Entry format: ID, Status, Context, Decision, Rejected, Supersedes, Reopen if.
 - Rejected: per-clone `core.autocrlf` settings.
 - Supersedes: none.
 - Reopen if: a tool needs CRLF files.
+
+## ADR-045: Render mode chosen from results, per model (2026-11-24, Daniel, H46)
+- Status: Accepted. No fixed default yet.
+- Context: The render tests (docs/RESEARCH.md, "Render tests on real models", PR #34) recommended HQ by default, UHQ in the background, and asked whether DRAFT stays its own mode (H46).
+- Decision: No default mode is set yet. Every render test shows Daniel the results of all four modes side by side (compare sheet, mode picker, times, sizes), and he picks the mode for that model. All four modes stay until the results settle a default.
+- Rejected: fixing HQ as the default now; dropping DRAFT now.
+- Supersedes: none; refines ADR-040.
+- Reopen if: Daniel's picks over the H43 models point to one default.
+
+## ADR-046: More render-test models (2026-11-24, Daniel, H43)
+- Status: Accepted
+- Context: ADR-042 named the test models; the RTR file was not found, and the AOI and PDM picks were open (H43).
+- Decision: Test all three AOI designs ("Assembly Fixture, AOI XY", "AOI v3", "AOI Assembly, Prototype Fixture, DRG") and all three PDM designs (custom-pdm-enclosure-v2c-F1, CPDM-ENC-109, CPDM-HAR-203). For RTR, look for big models in Daniel's OneDrive models folder and his Fusion hubs. Hub folder "RTR v2" (SparkleBots / Dan) is empty, so RTR is replaced by the biggest STEP models found there until Daniel names the RTR file.
+- Rejected: one pick per family.
+- Supersedes: none; refines ADR-042 (test models).
+- Reopen if: Daniel names the RTR file.

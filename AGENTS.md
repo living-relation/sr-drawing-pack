@@ -98,5 +98,5 @@ fails a PR that leaves a top-level `STATE-*.md`. The store path comes from
   sr-export, sr-fastener, sr-drawing-pdf).
 
 ## Asking Daniel
-- Multiple choice, one letter plus a number (A1, B2), with a recommendation. Never ask what DECISIONS,
+- Every question gets an ID of one letter plus one number (A1, B2); each choice is one more letter (A1a, A1b), with a recommendation. Daniel answers with the ID and the letter (A1b). Never ask what DECISIONS,
   SPEC or STATE already answers.
