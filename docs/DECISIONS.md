@@ -398,3 +398,10 @@ Entry format: ID, Status, Context, Decision, Rejected, Supersedes, Reopen if.
 - Rejected: four modes; the current names.
 - Supersedes: the four-mode list of ADR-040 and the per-model pick of ADR-045.
 - Reopen if: none.
+## ADR-049: Every method must make working views before the pick (2026-11-24, Daniel, H56)
+- Status: Accepted
+- Context: UHQ and FAST lost outlines on the CC-500 pendant; HQ bowed the AOI yoke slots. Daniel will not pick two modes (ADR-048, H55) until every method has had the chance to make working views.
+- Decision: Each method is fixed until it makes complete, correct views on every test model, then all models are re-run with the fixed code. A method that cannot be made to work is out of the running. Fixes so far (`research/render-tests/render_modes.py`): HQ arc fitting checks the arc between points (no bowed lines); UHQ adds the polygonal outlines that exact tracing drops on free-form faces; FAST uses a per-edge depth tolerance (face depth span, capped at 20 px) so silhouettes are not hidden. UHQ timeout raised to 600 s per view for the re-run.
+- Rejected: picking from results where a method failed for a fixable reason.
+- Supersedes: none; works with ADR-048.
+- Reopen if: none.
