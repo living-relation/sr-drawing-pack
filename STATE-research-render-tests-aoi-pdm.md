@@ -13,7 +13,7 @@ Updated: 2026-11-24 -- Claude (claude.ai chat, coordinator, working this branch)
 - Detail: waiting on Daniel: H55 (which two modes and names), H53 (PDM external-reference STEP: load Parts or skip)
 
 ## Next Single Step
-- [NEXT] Check fix1 pendant (research/_local/out/render-tests/fix1/cc500-pendant), then re-run all models-folder STEPs with the fixed render_modes.py (--uhq-timeout 600) into out/render-tests/fix1, compile, rate, ask H55
+- [NEXT] When research/_local/out/render-tests/fix2/queue.log says QUEUE DONE (16 models-folder STEPs, all fixes, UHQ 600 s), run compile_results.py on fix2, rate each compare.png 1-5, replace the table in docs/RESEARCH.md "All render tests compared", then ask H55 (pick 2 modes + names)
 
 ## Pointers
 - Branch_States: generated (state_manager.py branches)

@@ -191,7 +191,9 @@ def exact_hlr(shape, name):
     BRepMesh_IncrementalMesh(shape, UHQ_OUTLINE_DEFL, False, 0.25, True)
     pa = HLRBRep_PolyAlgo(); pa.Load(shape); pa.Projector(projector(name)); pa.Update()
     ph = HLRBRep_PolyHLRToShape(); ph.Update(pa)
-    res[0] += _pieces(ph.OutLineVCompound()); print("OUTLINES_DONE", round(tic() - t, 1), flush=True)
+    # fix 2 (pendant front view): exact Hide() also drops some sharp edges on those faces; add the polygonal visible
+    # edges too. Exact curves are kept where they exist; the polygonal set fills the gaps.
+    res[0] += _pieces(ph.OutLineVCompound()) + _pieces(ph.VCompound()); print("OUTLINES_DONE", round(tic() - t, 1), flush=True)
     return res[0], res[1], arcs
 
 # ---- FAST DRAFT: mesh creases + silhouettes, z-buffer visibility (vectorised)
