@@ -574,3 +574,28 @@ edges for UHQ. Sizes are the DXF of the four views and the 150 dpi PNG of the sh
 - FAST DRAFT is not worth it on B-rep models of these sizes. Keep it for mesh bodies (ADR-039) once the dashed outlines
   are fixed.
 - Use `--anti-aliasing=ssaa` for F3D thumbnails.
+
+## All render tests compared (2026-11-24, H52)
+
+Five models, four views each, times and DXF sizes from the "after" runs (anti-aliasing fixes on).
+`research/render-tests/compile_results.py` builds the numbers from each `render_modes.json`. The two new models came
+from Daniel's OneDrive models folder only (ADR-047): the AOI light bracket yoke and the Command Center CC-500 pendant
+(stand-in for RTR). Quality is rated 1-5 by eye from each compare sheet: 5 = complete and smooth, 3 = a visible
+defect, 1 = most views missing or wrong. Earlier models use the ratings in "Render tests on real models".
+
+| Model | Solids / faces | UHQ s (Q) | HQ s (Q) | DRAFT s (Q) | FAST s (Q) |
+|---|---|---|---|---|---|
+| AOI yoke | 1 / 57 | 12.2 (5) | 3.0 (3, slots bowed in front view) | 3.0 (5) | 5.2 (3, base outline cut) |
+| Fuel hanger | 12 / 1,806 | 87 for 1 of 4 views (1) | 5.4 (5) | 4.5 (5) | 11.1 (2) |
+| Filament cabinet | 1,130 / 16,521 | 46.0 (5) | 11.9 (5) | 10.8 (5) | 63.8 (3) |
+| CC-500 pendant | 359 / 17,392 | 122.0 (2, outlines of curved bodies missing) | 9.5 (5) | 9.2 (5) | 19.1 (2, broken outlines) |
+| Fuse box | 816 / 35,004 | 156.5 (5) | 19.8 (5) | 17.8 (5) | 44.3 (3) |
+
+- Time grows with face count for HQ, DRAFT and FAST. UHQ does not follow face count: it timed out (fuel hanger) or
+  dropped outlines (pendant grip and housing) on free-form and threaded bodies.
+- DRAFT was the fastest and complete on all five. Its cost is the DXF: raw two-point pieces, 2 to 6 times bigger.
+- HQ is DRAFT plus joining into polylines and fitting true arcs (smaller DXF, real ARC/CIRCLE). Its fitting bowed the
+  yoke's straight slot sides: a bug, not a method limit (BACKLOG 2026-11-24).
+- FAST was never the fastest and never complete.
+- Not run: the PDM revF STEP (a top file with external references to `Parts/*.stp`; the renderer reads only the top
+  file, so it found no geometry) and the CC-000 panel (3,637 solids, 86,300 faces; running at the time of writing).

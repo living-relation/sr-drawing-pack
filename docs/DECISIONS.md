@@ -382,3 +382,19 @@ Entry format: ID, Status, Context, Decision, Rejected, Supersedes, Reopen if.
 - Rejected: one pick per family.
 - Supersedes: none; refines ADR-042 (test models).
 - Reopen if: Daniel names the RTR file.
+
+## ADR-047: Test models from the OneDrive models folder only, for now (2026-11-24, Daniel, H48)
+- Status: Accepted
+- Context: Hub files are being moved and work is still happening on the PDM; a live open of the PDM assembly froze Fusion (BACKLOG 2026-11-24).
+- Decision: Until Daniel says otherwise, render tests use STEP files from his OneDrive models folder only. No hub files and no opens in Fusion.
+- Rejected: opening hub designs by file id; using STEP files from other folders.
+- Supersedes: the hub-file parts of ADR-042 and ADR-046 (models), for now.
+- Reopen if: Daniel says the hub and PDM work have settled.
+
+## ADR-048: Two render modes, named by what they give (2026-11-24, Daniel, H52)
+- Status: Accepted. Which two, and their names, open (H55).
+- Context: The four mode names (UHQ, HQ, DRAFT, FAST DRAFT) do not match the results (docs/RESEARCH.md, "All render tests compared").
+- Decision: Keep two modes: one very fast that may give up line quality, one with accurate, high-quality lines that may take longer. Pick them from the compiled results and rename them by what they actually give.
+- Rejected: four modes; the current names.
+- Supersedes: the four-mode list of ADR-040 and the per-model pick of ADR-045.
+- Reopen if: none.

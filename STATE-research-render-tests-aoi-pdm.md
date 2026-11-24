@@ -5,18 +5,18 @@ Last_Verified_SHA: none
 Updated: 2026-11-24 -- Claude (claude.ai chat, coordinator, working this branch)
 
 ## Current Goal
-- Objective: Render tests (ADR-040, ADR-045) on the H43 models (ADR-046): 3 AOI, 3 PDM, plus big OneDrive STEP models in place of RTR; show Daniel every mode per model so he picks.
+- Objective: Compile all render tests (OneDrive models only, ADR-047) and get Daniel's pick of two modes and their names (ADR-048, H55).
 - Spec_Ref: docs/SPEC.md#milestones-and-done-criteria
 
 ## Active Blocker
 - Status: BLOCKED
-- Detail: Fusion closed during a live open (BACKLOG 2026-11-24 incident). Waiting on Daniel: H47 (recover docs, restart Fusion), H48 (how to open models)
+- Detail: waiting on Daniel: H55 (which two modes and names), H53 (PDM external-reference STEP: load Parts or skip)
 
 ## Next Single Step
-- [NEXT] Export STEP + bom.json for "Assembly Fixture, AOI XY" (urn:adsk.wipprod:dm.lineage:QqZSWmM8QXqMzhEclPxSRg) in local Fusion, then run research/render-tests/render_modes.py and show Daniel the compare sheet
+- [NEXT] Add the CC-000 panel row to docs/RESEARCH.md "All render tests compared" when its run ends (research/_local/out/render-tests/queue.log), then record H55 as an ADR
 
 ## Pointers
 - Branch_States: generated (state_manager.py branches)
 - Backlog: BACKLOG.md
-- Latest_ADR: ADR-046
-- Question_Counter: H48
+- Latest_ADR: ADR-048
+- Question_Counter: H55
