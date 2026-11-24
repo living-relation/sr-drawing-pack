@@ -9,8 +9,8 @@ Updated: 2026-11-24 -- Claude (claude.ai chat, coordinator, working this branch)
 - Spec_Ref: docs/SPEC.md#milestones-and-done-criteria
 
 ## Active Blocker
-- Status: NONE
-- Detail: none
+- Status: BLOCKED
+- Detail: Fusion closed during a live open (BACKLOG 2026-11-24 incident). Waiting on Daniel: H47 (recover docs, restart Fusion), H48 (how to open models)
 
 ## Next Single Step
 - [NEXT] Export STEP + bom.json for "Assembly Fixture, AOI XY" (urn:adsk.wipprod:dm.lineage:QqZSWmM8QXqMzhEclPxSRg) in local Fusion, then run research/render-tests/render_modes.py and show Daniel the compare sheet
@@ -19,4 +19,4 @@ Updated: 2026-11-24 -- Claude (claude.ai chat, coordinator, working this branch)
 - Branch_States: generated (state_manager.py branches)
 - Backlog: BACKLOG.md
 - Latest_ADR: ADR-046
-- Question_Counter: H47
+- Question_Counter: H48
