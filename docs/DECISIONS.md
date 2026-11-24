@@ -405,3 +405,10 @@ Entry format: ID, Status, Context, Decision, Rejected, Supersedes, Reopen if.
 - Rejected: picking from results where a method failed for a fixable reason.
 - Supersedes: none; works with ADR-048.
 - Reopen if: none.
+## ADR-050: PDM shell STEP skipped for now (2026-11-24, Daniel, H53)
+- Status: Accepted
+- Context: The PDM STEP in the models folder (`custom-pdm-enclosure-revF`) holds only the assembly tree; its parts are external references to `Parts/*.stp`, which render_modes.py does not read.
+- Decision: Skip the PDM model in the render tests for now (H53b). The renderer is not changed to load external references.
+- Rejected: teaching the renderer to load external references now (H53a).
+- Supersedes: the PDM part of ADR-046.
+- Reopen if: the PDM work settles (ADR-047) or the drawing app must read STEP files with external references.

@@ -98,5 +98,5 @@ fails a PR that leaves a top-level `STATE-*.md`. The store path comes from
   sr-export, sr-fastener, sr-drawing-pdf).
 
 ## Asking Daniel
-- Question IDs come from the one counter in the root STATE (`Question_Counter`, H<n>, coordinator-kit); each choice is one letter (H55a, H55b), with a recommendation. Daniel answers with the ID and the letter (H55a). Never ask what DECISIONS,
+- Every question ID is one capital letter plus one digit, never more than 2 characters (A1 ... Z9); every choice is one lower-case letter (A1a, A1b), with a recommendation (Daniel, 2026-11-24). IDs still come from the one counter (`Question_Counter`, coordinator-kit); old H<n> IDs keep their meaning. Never ask what DECISIONS,
   SPEC or STATE already answers.
