@@ -83,3 +83,7 @@
 - 2026-11-23 (drift watch 3): worker PRs #30 and #31 merged past state-check WARNs. Briefs must say: sync-only PRs use the `no-state-change` label or `State: no change`; run state-closeout (fill the branch STATE) before `archive-branch`; Latest_ADR and Spec_Ref must be real values.
 - 2026-11-23 (drift watch 3, repeated mistake, coordinator): branch STATE files for #26-#29 were archived as unfilled init stubs. Fill the branch STATE before archiving.
 - 2026-11-23 (drift watch 3): PR #31 body has an unexplained line "checked, nothing re-added" (source unknown; not acted on).
+- 2026-11-23 (Daniel, 21:23): watcher scope is sr-drawing-pack only; do not watch or report on the workstation repo (H45 asks whether to still read the latest workstation-core rules).
+- 2026-11-23 (handoff): a scheduled send_later drift-watch reminder fires 2026-11-24 06:23 UTC into the old coordinator chat with the old wording (it checks workstation commits); editing and deleting it were blocked by permission checks. Daniel can delete it under scheduled tasks.
+- 2026-11-23 (handoff): in claude.ai cloud sessions the workstation-core plugin hooks cannot run (no PowerShell); the Stop hook re-prompts after every reply (loop). Installing PowerShell there was blocked by a permission check.
+- 2026-11-23 (handoff): H43 test-model candidates in hub project "Dan": AOI "Assembly Fixture, AOI XY", "AOI v3", "AOI Assembly, Prototype Fixture, DRG"; PDM custom-pdm-enclosure-v2c-F1, CPDM-ENC-109, CPDM-HAR-203; no file matches RTR, router or R-T-R.
