@@ -34,10 +34,10 @@ DEFAULT_TOL = (
     'INTERPRET PER ASME Y14.5-2018'
 )
 
-# Tolerance block: 92 mm wide, text starts 6.5 mm below its top edge.
+# Block tolerance box: 92 mm wide, full title-block height (52 mm); text starts 9 mm below its top.
 TOL_W = 92.0
 TOL_H = 2.2
-TOL_TOP = 33.5
+TOL_TOP = 43.0
 
 
 def tol_lines(tol):
@@ -70,6 +70,8 @@ REVLOG_MAX_H = 48.0
 REVLOG_LP = 1.45
 
 BOM_COLS = (9, 9, 44, 80, 40)
+# Bottom-left anchor: 140 mm, clears the block tolerance box on size B.
+BOM_COLS_COMPACT = (9, 8, 36, 57, 30)
 # handbuilt-cad drawing/asm.py bom_table(..., h=2.0). There is no bom_table.py.
 # dwg.py turns that into points as h * (72/25.4) / 0.72, which is 7.874 pt
 # in the filed FH-200 parts list.
@@ -288,7 +290,8 @@ def draw_frame(sh, info, sheet_no, n_sheets, width=None, height=None, zones=(8, 
     box(x0 + 110, y1 - 34, x1, y1 - 24, 'MATERIAL', material, 2.6 if len(material) > 22 else 3.0)
     box(x0, y0 + 8, x0 + 30, y1 - 34, 'SCALE', info.get('scale') or '-', 3.0)
     box(x0 + 30, y0 + 8, x0 + 52, y1 - 34, 'UNITS', info.get('units') or 'mm', 3.0)
-    box(x0 + 52, y0 + 8, x0 + 80, y1 - 34, 'SIZE', info.get('size_label') or 'B (11x17)', 2.6)
+    size = str(info.get('size') or 'B')
+    box(x0 + 52, y0 + 8, x0 + 80, y1 - 34, 'SIZE', size, 3.6 if len(size) <= 3 else 2.6, True)
     box(x0 + 80, y0 + 8, x0 + 108, y1 - 34, 'SHEET', '%s OF %s' % (sheet_no, n_sheets), 3.0)
     box(x0 + 108, y0 + 8, x0 + 140, y1 - 34, 'DATE', info.get('date') or '', 2.8)
     drawn = info.get('drawn') or ''
@@ -304,9 +307,11 @@ def draw_frame(sh, info, sheet_no, n_sheets, width=None, height=None, zones=(8, 
     sh.circle((cx + 4, cy), 1.0, 'thin')
     sh.txt(a + 27, cy, '3RD ANGLE', h=1.8)
 
+    # Block tolerance box: its own box, joined to the title block, full height.
     tx0 = x0 - TOL_W
-    sh.pl([(tx0, y0), (x0, y0), (x0, y0 + 40), (tx0, y0 + 40)], 'tb', closed=True)
-    sh.txt(tx0 + 2, y0 + 38, 'UNLESS OTHERWISE SPECIFIED:', h=2.2, ha='left', va='top', bold=True)
+    sh.pl([(tx0, y0), (x0, y0), (x0, y1), (tx0, y1)], 'tb', closed=True)
+    sh.txt(tx0 + 1, y1 - 1, 'BLOCK TOLERANCE', h=1.8, ha='left', va='top')
+    sh.txt(tx0 + 2, y1 - 4.5, 'UNLESS OTHERWISE SPECIFIED:', h=2.2, ha='left', va='top', bold=True)
     sh.txt(tx0 + 2, y0 + TOL_TOP, '\n'.join(tol_lines(info.get('tol'))), h=TOL_H, ha='left', va='top')
 
     if info.get('draft'):
@@ -428,14 +433,117 @@ def draw_note_flag(sh, x, y, ax, ay, number):
         sh.line((x + dx / dist * s, y + dy / dist * s), (ax, ay), 'dim')
 
 
-def draw_view_box(sh, el):
+VIEW_CAPTION_H = 3.4
+VIEW_SUB_H = 2.6
+
+
+def draw_view_box(sh, el, caption=None):
+    """An empty view frame and its caption.
+
+    The caption goes under the frame. `caption` is the list from
+    annotate.view_caption: empty for a view at the sheet scale, so a default
+    view (front, top, trimetric, ...) draws no label at all. The small
+    bracketed name in the corner marks the empty frame for the editor only.
+    """
     x, y = float(el['x']), float(el['y'])
     w, h = float(el['w']), float(el['h'])
     sh.pl([(x, y), (x + w, y), (x + w, y + h), (x, y + h)], 'thin', closed=True)
     t = 3.0
     sh.line((x, y + t), (x + t, y), 'thin')
     sh.line((x + w - t, y + h), (x + w, y + h - t), 'thin')
-    sh.txt(x + w / 2, y + h / 2 + 2.2, el.get('label') or 'VIEW', h=3.4, bold=True)
-    scale = el.get('scale')
-    sub = ('SCALE %s' % scale) if scale else 'VIEW FRAME'
-    sh.txt(x + w / 2, y + h / 2 - 3.2, sub, h=2.2)
+    tag = el.get('label') or el.get('kind') or 'view'
+    if el.get('letter') and (el.get('kind') in ('detail', 'section', 'auxiliary')):
+        tag = '%s %s' % (el.get('kind'), el.get('letter'))
+    sh.txt(x + 1.2, y + h - 1.2, '[%s]' % str(tag).lower(), h=1.8, ha='left', va='top')
+    yy = y - 2.0
+    for i, line in enumerate(caption or []):
+        hh = VIEW_CAPTION_H if i == 0 and not line.startswith('SCALE ') else VIEW_SUB_H
+        sh.txt(x + w / 2, yy, line, h=hh, bold=(hh == VIEW_CAPTION_H), va='top')
+        yy -= hh * 1.6
+
+
+ARROW_L = 3.0
+ARROW_W = 1.0
+DIM_TEXT_H = 2.5
+DIM_GAP = 1.0
+DIM_EXT = 1.5
+
+
+def _arrow(sh, tip, ux, uy):
+    """Filled arrowhead with its tip at `tip`, pointing along (ux, uy)."""
+    bx, by = tip[0] - ux * ARROW_L, tip[1] - uy * ARROW_L
+    px, py = -uy * ARROW_W, ux * ARROW_W
+    sh.tri([tip, (bx + px, by + py), (bx - px, by - py)])
+
+
+def draw_dimension(sh, el, text, basic=False):
+    """Linear dimension: extension lines, dimension line with arrows, text.
+
+    orient 'h' measures x, 'v' measures y, 'aligned' measures along the points.
+    offset moves the dimension line off the points (mm, + is up / left of the line).
+    """
+    x1, y1, x2, y2 = (float(el[k]) for k in ('x1', 'y1', 'x2', 'y2'))
+    off = float(el.get('offset') or 10.0)
+    orient = el.get('orient') or 'aligned'
+    if orient == 'h':
+        ly = max(y1, y2) + off if off >= 0 else min(y1, y2) + off
+        a, b = (x1, ly), (x2, ly)
+        ext = [((x1, y1), a), ((x2, y2), b)]
+    elif orient == 'v':
+        lx = min(x1, x2) - off if off >= 0 else max(x1, x2) - off
+        a, b = (lx, y1), (lx, y2)
+        ext = [((x1, y1), a), ((x2, y2), b)]
+    else:
+        dx, dy = x2 - x1, y2 - y1
+        L = math.hypot(dx, dy) or 1.0
+        nx, ny = -dy / L, dx / L
+        a = (x1 + nx * off, y1 + ny * off)
+        b = (x2 + nx * off, y2 + ny * off)
+        ext = [((x1, y1), a), ((x2, y2), b)]
+    for (p, q) in ext:
+        vx, vy = q[0] - p[0], q[1] - p[1]
+        d = math.hypot(vx, vy)
+        if d > DIM_GAP:
+            ux, uy = vx / d, vy / d
+            sh.line((p[0] + ux * DIM_GAP, p[1] + uy * DIM_GAP), (q[0] + ux * DIM_EXT, q[1] + uy * DIM_EXT), 'dim')
+    sh.line(a, b, 'dim')
+    L = math.hypot(b[0] - a[0], b[1] - a[1]) or 1.0
+    ux, uy = (b[0] - a[0]) / L, (b[1] - a[1]) / L
+    _arrow(sh, a, -ux, -uy)
+    _arrow(sh, b, ux, uy)
+    ang = math.degrees(math.atan2(uy, ux))
+    if ang > 90.01 or ang < -89.99:
+        ang += 180.0
+    if ang > 180:
+        ang -= 360
+    mx, my = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
+    nlines = text.count('\n') + 1
+    lift = 1.0 + (DIM_TEXT_H * 1.6 * (nlines - 1)) / 2.0 + DIM_TEXT_H / 2.0
+    rad = math.radians(ang)
+    tx, ty = mx - math.sin(rad) * lift, my + math.cos(rad) * lift
+    sh.txt(tx, ty, text, h=DIM_TEXT_H, rot=round(ang, 3) if abs(ang) > 0.01 else 0, bg=False)
+    if basic and nlines == 1:
+        from .font import text_width_mm
+        tw = text_width_mm(text, DIM_TEXT_H) / 2 + 0.8
+        hh = DIM_TEXT_H / 2 + 0.8
+        c, s_ = math.cos(rad), math.sin(rad)
+        pts = [(tx + c * px - s_ * py, ty + s_ * px + c * py) for px, py in ((-tw, -hh), (tw, -hh), (tw, hh), (-tw, hh))]
+        sh.pl(pts, 'thin', closed=True)
+
+
+def draw_hole_callout(sh, el, lines):
+    """Hole callout text with a leader that ends in an arrow on the hole."""
+    x, y = float(el['x']), float(el['y'])
+    ax, ay = float(el['ax']), float(el['ay'])
+    from .font import text_width_mm
+    h = DIM_TEXT_H
+    wmax = max([text_width_mm(t, h) for t in lines] or [0])
+    left = ax <= x
+    sh.txt(x + (1.0 if left else -1.0), y + 0.6, '\n'.join(lines), h=h, ha='left' if left else 'right', va='bottom')
+    shelf_end = x + (wmax + 2.0 if left else -(wmax + 2.0))
+    sh.line((x, y), (shelf_end, y), 'dim')
+    dx, dy = ax - x, ay - y
+    d = math.hypot(dx, dy)
+    if d > 0.5:
+        sh.line((x, y), (ax, ay), 'dim')
+        _arrow(sh, (ax, ay), dx / d, dy / d)

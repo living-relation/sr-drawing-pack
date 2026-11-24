@@ -20,4 +20,36 @@ balloon. Note flags store the note key the same way.
 
 The tolerance block does not add an edge-break line unless the drawing
 supplies that text itself.
+
+The sheet scale comes from the title block (or the sheet's own scale). Views
+at the sheet scale print no view label and no scale label. Default views
+(front, top, right, left, back, isometric, trimetric, ...) print no label.
+A view gets a subtitle only when its scale differs or the user asks for one.
+Detail and section views keep their letter labels and add their scale only
+when it differs.
+
+The block tolerance is set by the decimals on a dimension (mm: X, X.X, X.XX;
+inch: .X, .XX, .XXX). The tiers are configurable and print in their own box
+joined to the title block. The sheet size letter has its own box.
+
+A dimension that follows the block tolerance shows no tolerance text. A
+tolerance on one annotation prints only when it is tighter than, or
+different from, the block. The file hole tolerance (size and position)
+prints the same way: in a hole note, in each hole callout, or both, and only
+where it differs. Hole callouts always carry thread specs.
+
+Detail views are never added automatically, and a plain view frame is not a
+detail view. The engineer adds one with the detail-view options: a circle or
+a profile on the parent view, the circle style, the outline, and the scale.
+The engine may suggest one (a section feature such as an o-ring groove, or
+small features too crowded to dimension at the sheet scale); suggestions show
+as a yellow exclamation mark in the status bar, and the engineer decides.
+
+A BOM anchors at the bottom-left corner of the frame by default, or at the
+right corner directly above the title block. Any BOM piece can be split above
+or below a row; each piece keeps its header and can be moved.
+
+When adding any drawing item, give the user the options the SOLIDWORKS
+drawing editor gives for it (its PropertyManager or table menu). SOLIDWORKS
+is the reference.
 """

@@ -2,7 +2,8 @@
 
 The parts are stand-ins so the public repo does not copy a filed package.
 The sheet chrome (border, zones, title block, rev table, BOM, notes, balloons)
-is what the sample is for. View frames are empty.
+is what the sample is for. View frames are empty; the dimensions and hole
+callouts sit on stand-in points to show the tolerance rules.
 """
 from .commands import execute
 
@@ -57,8 +58,11 @@ def build_sample():
         doc, _result = _run(
             doc, 'add_bom_row', key=key, item=item, qty=qty, pn=pn, desc=desc, mat=mat, shown=shown)
 
-    doc, _result = _run(doc, 'place_bom', id='bom1', sheet='s1', x1=421.8, ytop=236, max_height=48)
-    doc, _result = _run(doc, 'place_bom', id='bom2', sheet='s2', x1=421.8, ytop=250, max_height=170)
+    # Default anchor: bottom-left corner of the frame. The table is split below
+    # item 8 and the second piece sits on the other anchor, right corner above
+    # the title block. Each piece keeps its header.
+    doc, _result = _run(doc, 'place_bom', id='bom1', sheet='s1', anchor='bottom_left')
+    doc, _result = _run(doc, 'split_table', id='bom2', row='p8', where='below', anchor='above_title')
 
     notes = (
         ('n1', 'SAMPLE PACKAGE FOR THE SHEET EDITOR. THE VIEW FRAMES ARE EMPTY.'),
@@ -67,28 +71,62 @@ def build_sample():
     )
     for key, text in notes:
         doc, _result = _run(doc, 'add_note', key=key, text=text)
-    doc, _result = _run(doc, 'place_notes', id='notes1', sheet='s1', x=18, y=90, width=100)
+    doc, _result = _run(doc, 'place_notes', id='notes1', sheet='s1', x=18, y=104, width=120)
 
+    # Views at the sheet scale (1:2 in the title block) get no label. Default
+    # views (front, top, right, trimetric) get no label either. The section at
+    # the sheet scale shows only its letters. No detail view is added: the
+    # engine only suggests one (see suggest_details below).
     views = (
-        ('v1', 's1', 18, 175, 90, 52, 'FRONT', '1:2'),
-        ('v2', 's1', 116, 175, 90, 52, 'TOP', '1:2'),
-        ('v3', 's1', 18, 112, 90, 52, 'RIGHT', '1:2'),
-        ('v4', 's1', 116, 108, 100, 58, 'TRIMETRIC', None),
-        ('v5', 's2', 22, 130, 150, 90, 'BUILD VIEW', None),
+        ('v1', 's1', 18, 175, 90, 52, {'label': 'FRONT'}),
+        ('v2', 's1', 116, 175, 90, 52, {'label': 'TOP'}),
+        ('v3', 's1', 18, 112, 90, 52, {'label': 'RIGHT'}),
+        ('v4', 's1', 116, 108, 100, 58, {'label': 'TRIMETRIC'}),
+        ('v6', 's1', 300, 112, 70, 48, {'kind': 'section', 'letter': 'A'}),
+        ('v5', 's2', 22, 130, 150, 90, {'label': 'BUILD VIEW', 'show_label': True}),
+        ('v8', 's2', 200, 130, 90, 60, {'label': 'FRONT', 'scale': '1:1'}),
     )
-    for vid, sheet, x, y, w, h, label, scale in views:
-        doc, _result = _run(
-            doc, 'place_view', id=vid, sheet=sheet, x=x, y=y, w=w, h=h, label=label, scale=scale)
+    for vid, sheet, x, y, w, h, extra in views:
+        doc, _result = _run(doc, 'place_view', id=vid, sheet=sheet, x=x, y=y, w=w, h=h, **extra)
+
+    # One hole tolerance for the file. Only the part that differs from the block
+    # tolerance prints: the size (+0.1/-0) does, the position (±0.05, the same
+    # as X.XX) does not.
+    doc, _result = _run(
+        doc, 'set_hole_tolerance', size={'kind': 'dev', 'plus': 0.1, 'minus': 0},
+        position={'kind': 'pm', 'value': 0.05}, show='both')
+    dims = (
+        ('d1', dict(x1=28, y1=183, x2=98, y2=183, orient='h', offset=-6)),
+        ('d2', dict(x1=38, y1=205, x2=88, y2=205, orient='h', offset=14, role='hole_position', decimals=2)),
+        ('d3', dict(x1=98, y1=183, x2=98, y2=215, orient='v', offset=-8, decimals=1,
+                    tol={'kind': 'pm', 'value': 0.1})),
+        ('d4', dict(x1=126, y1=185, x2=196, y2=185, orient='h', offset=-6, decimals=2)),
+    )
+    for did, extra in dims:
+        doc, _result = _run(doc, 'place_dimension', id=did, sheet='s1', **extra)
+    doc, _result = _run(
+        doc, 'place_hole_callout', id='h1', sheet='s1', count=4, dia=6.6, depth='THRU',
+        x=44, y=234, ax=38, ay=205)
+    doc, _result = _run(
+        doc, 'place_hole_callout', id='h2', sheet='s1', count=2, thread='M4x0.7 - 6H', tap_drill=3.3,
+        drill_depth=12, thread_depth=10, x=150, y=234, ax=160, ay=205)
 
     balloons = (
         ('b1', 'p1', 210, 155, 190, 145),
         ('b2', 'p2', 230, 130, 200, 125),
-        ('b3', 'p3', 150, 100, 170, 120),
+        ('b3', 'p3', 200, 96, 175, 118),
         ('b4', 'p6', 200, 175, 185, 155),
     )
     for bid, key, x, y, ax, ay in balloons:
         doc, _result = _run(
             doc, 'place_balloon', id=bid, sheet='s1', bom_key=key, x=x, y=y, ax=ax, ay=ay)
     doc, _result = _run(
-        doc, 'place_note_flag', id='f1', sheet='s1', note_key='n1', x=160, y=78, ax=122, ay=82)
+        doc, 'place_note_flag', id='f1', sheet='s1', note_key='n1', x=168, y=90, ax=140, ay=100)
+    # Suggestions for the engineer. They show in the status bar, not on the sheet.
+    doc, _result = _run(doc, 'suggest_details', features=[
+        {'id': 'groove1', 'view': 'v6', 'x': 335, 'y': 136, 'size': 2.4, 'kind': 'o_ring_groove'},
+        {'id': 'c1', 'view': 'v2', 'x': 180, 'y': 200, 'size': 1.0, 'kind': 'hole'},
+        {'id': 'c2', 'view': 'v2', 'x': 184, 'y': 203, 'size': 1.0, 'kind': 'hole'},
+        {'id': 'c3', 'view': 'v2', 'x': 188, 'y': 200, 'size': 0.8, 'kind': 'chamfer'},
+    ])
     return doc
