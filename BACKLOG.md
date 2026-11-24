@@ -93,3 +93,4 @@
 - 2026-11-23 (render tests, sr-export): `write_sidecar` took 419 s on the cabinet's 1,117 occurrences, longer than one Fusion MCP call waits. Likely the high-accuracy physical properties per component; an sr-export change (other repo).
 - 2026-11-23 (render tests): local Fusion MCP `script` calls return no `print()` output; scripts must write their results to a file.
 - 2026-11-23 (render tests): DRAFT gave no time win over HQ on the three models (about 1 s per view) and 3.6 to 6 times bigger DXFs. Question for Daniel via the coordinator: keep DRAFT as its own mode?
+- 2026-11-23 (render tests, PR #34): the worker's unnumbered question 'keep DRAFT as its own mode?' is H46 (with the HQ-default / UHQ-in-background recommendation).
