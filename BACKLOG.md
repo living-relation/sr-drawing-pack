@@ -83,3 +83,9 @@
 - 2026-11-23 (drift watch 3): worker PRs #30 and #31 merged past state-check WARNs. Briefs must say: sync-only PRs use the `no-state-change` label or `State: no change`; run state-closeout (fill the branch STATE) before `archive-branch`; Latest_ADR and Spec_Ref must be real values.
 - 2026-11-23 (drift watch 3, repeated mistake, coordinator): branch STATE files for #26-#29 were archived as unfilled init stubs. Fill the branch STATE before archiving.
 - 2026-11-23 (drift watch 3): PR #31 body has an unexplained line "checked, nothing re-added" (source unknown; not acted on).
+- 2026-11-23 (render tests): UHQ (HLRBRep_Algo `Hide()`) timed out on 3 of 4 fuel hanger views although it has only 12 solids; the 35,004-face fuse box finished. Time each body alone to find the slow surface type, then decide: HQ for that body only, or a longer background timeout.
+- 2026-11-23 (render tests): FAST DRAFT on B-rep models is slower than HQ, dashes outlines and writes up to 47 MB DXFs. Needed before it is used for mesh bodies (ADR-039): a depth tolerance that follows the face slope, or a GPU z-buffer; then join pieces into long lines.
+- 2026-11-23 (render tests): arc fitting leaves circles in the trimetric as polylines (they are ellipses). Add ellipse fitting (DXF ELLIPSE) for pictorial views.
+- 2026-11-23 (render tests, sr-export): `write_sidecar` took 419 s on the cabinet's 1,117 occurrences, longer than one Fusion MCP call waits. Likely the high-accuracy physical properties per component; an sr-export change (other repo).
+- 2026-11-23 (render tests): local Fusion MCP `script` calls return no `print()` output; scripts must write their results to a file.
+- 2026-11-23 (render tests): DRAFT gave no time win over HQ on the three models (about 1 s per view) and 3.6 to 6 times bigger DXFs. Question for Daniel via the coordinator: keep DRAFT as its own mode?

@@ -497,3 +497,80 @@ Answers to Daniel's questions of 2026-11-23. Plans from what was tested; items m
 - Exploded steps need an order and a direction per part. The engine takes them from a spec. Sources to test: the
   directions of Fusion joints between parts, and a step list the engineer edits in the editor. Untested.
 - Every one of these works on the camera and the view's lines, so each can use any render mode.
+
+## Render tests on real models (2026-11-23)
+
+H34b: the four render modes of ADR-040 on three of Daniel's hub models (ADR-042), tangent edges drawn (the default),
+each run before and after the H40a anti-aliasing fixes. STEP and sr-export `bom.json` came from local desktop Fusion
+(`research/render-tests/fusion_export.py`); each design was opened by file id, read only, and closed unmodified without
+saving. Views: `research/render-tests/render_modes.py`, one child process per job, UHQ killed after 120 s per view.
+Outputs stay in `research/_local/out/render-tests/` (`<model>_compare.png` rows = modes, `<model>_picker.png` the
+mode-picker strip, `<model>_aa_zoom.png` and `<model>_f3d_zoom.png` the anti-aliasing before / after).
+
+Times are for the four views (front, top, right, trimetric) after the fixes, then before them in brackets. They
+leave out the shared steps: STEP import (1.4 / 17.5 / 2.0 s for the three models) and meshing (0.2 to 3.9 s). "Lines"
+counts what is written: pieces for DRAFT, polylines plus fitted arcs and circles for HQ and FAST DRAFT, sampled exact
+edges for UHQ. Sizes are the DXF of the four views and the 150 dpi PNG of the sheet.
+
+### Fuel hanger `FH-200_Fuel-Hanger-Billet-Assembly_revA`: 19 occurrences, 12 solids, 1,806 faces, STEP 8.1 MB, 1:4
+
+| Mode | Views done | Time, 4 views | Lines | DXF / PNG | Looks right? |
+|---|---|---|---|---|---|
+| UHQ | 1 of 4 | right 87 s; front, top and trimetric timed out (120 s each) | 1,646 (right only) | 460 kB / 54 kB | Yes where it finished |
+| HQ | 4 | 5.4 s (7.7 s) | 6,022 (4,417) | 1.4 MB / 168 kB | Yes |
+| DRAFT | 4 | 4.5 s (7.5 s) | 38,003 pieces (22,809) | 7.1 MB / 166 kB | Yes on screen |
+| FAST DRAFT | 4 | 11.1 s (7.5 s) | 48,123 (25,115) | 9.1 MB / 170 kB | No: edges missing (bracket outline in the trimetric, the foot in front), outlines dashed |
+
+### Fuse box `ST185_fusebox_rev7`: 73 occurrences, 816 solids, 35,004 faces, STEP 62.9 MB, 1:4
+
+| Mode | Views done | Time, 4 views | Lines | DXF / PNG | Looks right? |
+|---|---|---|---|---|---|
+| UHQ | 4 of 4 | 156.5 s (21, 76, 21, 39 s) | 22,625; 260 true arcs | 5.9 MB / 374 kB | Yes |
+| HQ | 4 | 19.8 s (13.0 s) | 12,256 (8,739) | 3.8 MB / 389 kB | Yes; matches UHQ by eye at print scale |
+| DRAFT | 4 | 17.8 s (12.6 s) | 74,014 pieces (46,544) | 13.6 MB / 375 kB | Yes on screen |
+| FAST DRAFT | 4 | 44.3 s (26.5 s) | 260,170 (83,174) | 47 MB / 358 kB | Mostly: dashed outlines, some broken edges |
+
+### Filament cabinet `FC5-000 Filament Cabinet V5 Assy Rev H`: 1,117 occurrences, 1,130 solids, 16,521 faces, STEP 9.1 MB, 1:10
+
+| Mode | Views done | Time, 4 views | Lines | DXF / PNG | Looks right? |
+|---|---|---|---|---|---|
+| UHQ | 4 of 4 | 46.0 s (16, 10, 10, 10 s) | 6,434; 459 true arcs | 3.6 MB / 327 kB | Yes |
+| HQ | 4 | 11.9 s (7.7 s) | 5,604 (3,987) | 1.3 MB / 328 kB | Yes |
+| DRAFT | 4 | 10.8 s (7.5 s) | 41,081 pieces (22,717) | 7.6 MB / 328 kB | Yes on screen |
+| FAST DRAFT | 4 | 63.8 s (40.0 s) | 175,376 (149,924) | 31 MB / 341 kB | Mostly; the slowest mode on this model |
+
+### Anti-aliasing fixes (H40a), before and after
+
+| Fix | Result |
+|---|---|
+| Mesh deflection scaled to the view (0.02 mm on paper / sheet scale, 0.01 to 0.2 mm; 0.25 rad instead of 0.5) | 0.08 mm at 1:4 (fuel hanger, fuse box). At 1:10 it clamps at 0.2 mm, so only the angle changed (cabinet). HQ time +52% (fuse box, 13.0 to 19.8 s) and +55% (cabinet); the fuel hanger came out faster only because of the first-view cost below. Smoother curves in the trimetric, where circles are ellipses and no arc can be fitted. |
+| Arcs and circles fitted where every point is within 0.02 mm | HQ: 1,793 arcs + 13 circles (fuel hanger), 2,731 + 57 (fuse box), 1,798 + 192 (cabinet); at most 1 s per view. HQ DXF size about the same (+5%, +13%, -17%), and arcs and circles are now true DXF ARC / CIRCLE entities. |
+| PNG drawn 3x and downsampled (Lanczos) | Visibly smoother edges at 150 dpi; HQ after matches UHQ by eye (`<model>_aa_zoom.png`). PNG files +38 to 51%; 1 to 2.5 s per sheet instead of 0.1 s. |
+| F3D thumbnails with `--anti-aliasing=ssaa` | Supported by F3D 4.0.1 (`none`, `fxaa`, `ssaa`, `taa`). Same time (2.5 / 26 / 5.8 s for the whole model), files 6 to 15% smaller, smoother edges (`<model>_f3d_zoom.png`). |
+| FAST DRAFT: visibility tested against the farthest depth in a 3x3 pixel patch | More edges kept (fuel hanger front 554 to 1,396 lines) but outlines still break into dashes; 50 to 70% slower. |
+
+### What failed or surprised
+
+- UHQ timed out on 3 of 4 views of the fuel hanger, the smallest model (12 solids). The time is all in the hidden-line
+  step (`Hide()`, over 116 s; setup 3.5 s). The 35,004-face fuse box finished every view in 21 to 76 s, so face count
+  does not predict UHQ time; some surface types (likely the billet's threads, knurls or the hose clamp) are slow. Which
+  body is slow was not found.
+- FAST DRAFT on B-rep models is slower than HQ and looks worse: dashed or missing outlines, tens to hundreds of
+  thousands of short pieces, a 47 MB DXF on the fuse box. It never draws tangent edges (it sees only creases over 25 deg).
+- The first polygonal view of each run took 3 to 7 s, even on the fuel hanger, whose other views took 0.2 to 1.3 s:
+  a one-time cost, not the view itself.
+- sr-export's data file took 419 s on the cabinet's 1,117 occurrences (22 s on the fuel hanger), longer than one Fusion
+  MCP call waits. Fusion was busy, not hung, and the file was complete.
+- Fusion MCP script `print()` output is not returned; the export script writes `fusion_info.json` instead.
+
+### Recommendation
+
+- HQ with the three fixes is the right default for placing views: 5 to 20 s for four views on all three models, and
+  it looks right on every one.
+- UHQ only in the background, one process per view with a timeout, keeping the HQ view when it times out (the fuel
+  hanger). It is not needed for the screen; it is for released files where true curves matter.
+- DRAFT saves almost no time over HQ here (joining and fitting took about 1 s at most per view) and writes DXFs 3.6
+  to 6 times bigger. Daniel to decide whether it stays a separate mode.
+- FAST DRAFT is not worth it on B-rep models of these sizes. Keep it for mesh bodies (ADR-039) once the dashed outlines
+  are fixed.
+- Use `--anti-aliasing=ssaa` for F3D thumbnails.
