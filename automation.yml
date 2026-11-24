@@ -95,6 +95,17 @@ automations:
     enabled: true
     slow: true   # needs local Fusion, F3D or the handbuilt-cad venv
     owner: claude
+  - id: render-tests
+    script: research/render-tests/render_modes.py
+    helpers: [research/render-tests/fusion_export.py]
+    trigger: manual
+    reads: ["research/render-tests/*.py"]
+    writes: ["research/_local/**"]
+    committed: gitignored
+    auto_commit: false
+    enabled: true
+    slow: true   # needs local Fusion, F3D or the handbuilt-cad venv
+    owner: claude
   - id: real-test
     script: research/real-test/fast_sheet.py
     helpers: [research/real-test/chain_test.py, research/real-test/compare_methods.py, research/real-test/face_budget.py,
