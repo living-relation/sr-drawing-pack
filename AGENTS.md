@@ -50,6 +50,7 @@ fails a PR that leaves a top-level `STATE-*.md`. The store path comes from
 - `research/fusion-data/`: retired (ADR-029); the data file is sr-export's `<name>.bom.json`.
 - `research/thumbnails/`: BOM thumbnails from a STEP with the F3D viewer. Needs `F3D_EXE` (path to f3d.exe).
 - `research/real-test/`: whole-chain test on a real Fusion design, and the hidden-line speed test (`hlr_speed.py`).
+- `research/render-tests/`: render-mode tests (ADR-040) on real models. Needs `HBCAD_ROOT`; `F3D_EXE` optional.
 
 ## Coordination
 - One coordinator chat owns the root STATE. Workers are dispatched from it, one branch each, each with
