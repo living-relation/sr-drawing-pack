@@ -575,27 +575,89 @@ edges for UHQ. Sizes are the DXF of the four views and the 150 dpi PNG of the sh
   are fixed.
 - Use `--anti-aliasing=ssaa` for F3D thumbnails.
 
-## All render tests compared (2026-11-24, H52)
+## All render tests compared (2026-11-24, H52; fix2 re-run, ADR-049)
 
-Five models, four views each, times and DXF sizes from the "after" runs (anti-aliasing fixes on).
-`research/render-tests/compile_results.py` builds the numbers from each `render_modes.json`. The two new models came
-from Daniel's OneDrive models folder only (ADR-047): the AOI light bracket yoke and the Command Center CC-500 pendant
-(stand-in for RTR). Quality is rated 1-5 by eye from each compare sheet: 5 = complete and smooth, 3 = a visible
-defect, 1 = most views missing or wrong. Earlier models use the ratings in "Render tests on real models".
+Sixteen models from Daniel's OneDrive models folder (ADR-047), four views each, every mode after the ADR-049 fixes,
+UHQ timeout 600 s per view. Times are the sum of the four views; `research/render-tests/compile_results.py` builds the
+numbers from each `render_modes.json` (run on `research/_local/out/render-tests/fix2`). Quality is rated 1-5 by eye
+from each `compare.png`: 5 = complete and smooth, 3 = a visible defect, 1 = most views missing or wrong. PDM skipped
+(ADR-050).
 
 | Model | Solids / faces | UHQ s (Q) | HQ s (Q) | DRAFT s (Q) | FAST s (Q) |
 |---|---|---|---|---|---|
-| AOI yoke | 1 / 57 | 12.2 (5) | 3.0 (3, slots bowed in front view) | 3.0 (5) | 5.2 (3, base outline cut) |
-| Fuel hanger | 12 / 1,806 | 87 for 1 of 4 views (1) | 5.4 (5) | 4.5 (5) | 11.1 (2) |
-| Filament cabinet | 1,130 / 16,521 | 46.0 (5) | 11.9 (5) | 10.8 (5) | 63.8 (3) |
-| CC-500 pendant | 359 / 17,392 | 122.0 (2, outlines of curved bodies missing) | 9.5 (5) | 9.2 (5) | 19.1 (2, broken outlines) |
-| Fuse box | 816 / 35,004 | 156.5 (5) | 19.8 (5) | 17.8 (5) | 44.3 (3) |
+| Spacer | 1 / 4 | 11.2 (5) | 2.8 (5) | 2.8 (5) | 4.1 (4) |
+| Catch can scan (surfaces) | 0 / 9 | 16.2 (2, right view collapsed to a line) | 3.4 (4) | 3.2 (4) | 10.4 (3, broken edges) |
+| PCV tee | 1 / 50 | 64.0 (5) | 3.1 (5) | 2.9 (5) | 15.1 (2, tee outlines missing) |
+| AOI yoke | 1 / 57 | 11.5 (5) | 2.8 (5, slot bow fixed) | 2.8 (5) | 5.0 (5) |
+| CSB3 body | 1 / 149 | 11.3 (5) | 2.9 (5) | 2.8 (5) | 7.9 (3, front/right lines missing) |
+| Bezel (surfaces) | 0 / 237 | 24.9 (4, broken hidden edges) | 3.1 (4) | 2.9 (4) | 7.8 (3, stray boxes) |
+| Pedal adapter | 1 / 292 | 16.6 (4, stray lines) | 3.4 (5) | 3.1 (5) | 9.7 (3, gaps) |
+| Knuckle rev4b | 1 / 406 | 97.6 for 2 of 4 (2, 2 timeouts) | 4.4 (4) | 3.5 (4) | 18.1 (3, lines missing) |
+| Fuel hanger | 12 / 1,217 | 84.4 (2, long stray line, wrong extents) | 4.3 (5) | 3.8 (5) | 9.3 (3, clamp detail lost) |
+| Knuckle billet LF26 | 1 / 1,248 | 23.0 (5) | 3.8 (5) | 3.2 (5) | 10.6 (3, dashed edges) |
+| X-carriage asm | 47 / 3,637 | 1,204.5 for 3 of 4 (2, 1 timeout) | 6.0 (5) | 5.3 (5) | 19.8 (3, motor lines lost) |
+| DRB102 plate asm | 12 / 5,576 | 47.4 (5) | 7.2 (5) | 6.3 (5) | 21.8 (4) |
+| FC6 cabinet | 432 / 13,434 | 360.9 for 1 of 4 (1, 3 timeouts) | 17.2 (4) | 16.5 (4) | 238.8 (3) |
+| CC-500 pendant | 359 / 17,392 | 130.4 (4, stray marks) | 9.3 (5) | 9.0 (5) | 18.6 (2, broken outlines) |
+| Fuse box | 816 / 35,004 | 167.9 (5) | 18.1 (4, sparse front) | 16.0 (5) | 37.6 (3) |
+| CC-000 panel | 3,637 / 86,300 | 755.7 (4) | 60.1 (4) | 59.0 (5) | 62.2 (3, pendant broken) |
+| **Average Q** | | **3.8** | **4.6** | **4.8** | **3.1** |
 
-- Time grows with face count for HQ, DRAFT and FAST. UHQ does not follow face count: it timed out (fuel hanger) or
-  dropped outlines (pendant grip and housing) on free-form and threaded bodies.
-- DRAFT was the fastest and complete on all five. Its cost is the DXF: raw two-point pieces, 2 to 6 times bigger.
-- HQ is DRAFT plus joining into polylines and fitting true arcs (smaller DXF, real ARC/CIRCLE). Its fitting bowed the
-  yoke's straight slot sides: a bug, not a method limit (BACKLOG 2026-11-24).
-- FAST was never the fastest and never complete.
-- Not run: the PDM revF STEP (a top file with external references to `Parts/*.stp`; the renderer reads only the top
-  file, so it found no geometry) and the CC-000 panel (3,637 solids, 86,300 faces; running at the time of writing).
+- HQ and DRAFT are the fastest on every model (under 20 s up to 35k faces, 60 s on the 86k-face panel) and the best
+  looking. HQ is DRAFT plus polyline joining and true-arc fitting: same speed, smaller DXF, real ARC/CIRCLE.
+- The ADR-049 fixes worked for HQ: the AOI yoke slot bow is gone.
+- UHQ gives exact true arcs from the B-rep, but timed out on 3 models and drew wrong lines on 4 more. It does not
+  follow face count. Slowest by 5-50x.
+- FAST is never fastest and never best (FC6: 239 s). It loses to HQ/DRAFT on both speed and quality.
+
+## XQ: exact edges, visibility from the GPU depth buffer (2026-11-24, ADR-051)
+
+Daniel's rule (ADR-051): over 2 minutes from STEP to views is a fail. UHQ (exact HLR, `HLRBRep_Algo`) runs on one CPU
+core and compares every edge with every face, so it grows with the square of the model; it took 756 s on the CC-000
+panel and timed out on 3 models. The PC has a Ryzen 5 7600X (6 cores, 12 threads), 64 GB RAM and an RTX 3060 12 GB,
+and every old mode used one core and no GPU.
+
+How other CAD tools do it: SOLIDWORKS offers "High quality" (exact, model resolved) and "Draft quality" (lightweight,
+tessellated) drawing views; the most common hidden-line method in CAD viewers is to draw the shaded model into a depth
+buffer and keep only the parts of each line in front of it (Cole & Finkelstein 2009/2010). XQ uses that for
+**visibility only** and keeps the **exact B-rep edges** for the line shapes (true lines and arcs), so lines are as good
+as UHQ. Silhouettes of curved faces are traced inside the mesh triangles with smoothed normals (Hertzmann & Zorin
+2000), so they are smooth, not stair-stepped.
+
+Pipeline (`research/render-tests/xq_render.py`): STEP read (OCC, 1 core) -> mesh (OCC, all cores) -> depth buffer for
+the 4 views (VTK/OpenGL on the GPU) at the same time as exact edge sampling (10 worker processes) -> visibility per point
+(numpy) -> join, fit true arcs. Run on all 16 models straight from STEP (queue `xq/full4`):
+
+| Model | Faces | XQ total s (from STEP) | of which STEP read s | UHQ s (fix2, cached) | XQ Q |
+|---|---|---|---|---|---|
+| Spacer | 4 | 4.4 | 0.0 | 11.2 | not rated |
+| Catch can scan | 9 | 5.2 | 0.2 | 16.2 (view broken) | 4 |
+| PCV tee | 50 | 5.5 | 0.1 | 64.0 | 5 |
+| AOI yoke | 57 | 5.1 | 0.0 | 11.5 | 5 |
+| CSB3 body | 149 | 5.6 | 0.1 | 11.3 | not rated |
+| Bezel | 237 | 5.9 | 0.2 | 24.9 | not rated |
+| Pedal adapter | 292 | 6.2 | 0.5 | 16.6 | not rated |
+| Knuckle rev4b | 406 | 16.3 | 8.3 | 2 of 4 timed out | 4 (cast surfaces a little rough) |
+| Fuel hanger | 1,217 | 8.2 | 1.2 | 84.4 (stray line) | not rated |
+| Knuckle billet LF26 | 1,248 | 7.4 | 0.8 | 23.0 | not rated |
+| X-carriage asm | 3,637 | 10.1 | 1.4 | 1 of 4 timed out | 5 |
+| DRB102 plate asm | 5,576 | 13.4 | 2.7 | 47.4 | not rated |
+| FC6 cabinet | 13,434 | 43.7 | 17.3 | 3 of 4 timed out | 5 |
+| CC-500 pendant | 17,392 | 22.4 | 10.0 | 130.4 | 4 (small gaps, front view) |
+| Fuse box | 35,004 | 40.8 | 15.5 | 167.9 | 5 |
+| CC-000 panel | 86,300 | 88.4 | 42.5 | 755.7 | 5 |
+
+- Every model passes the 2-minute rule; the worst is 88 s, and 48 % of that is the STEP read.
+- The STEP read is now the largest cost on big assemblies (CC-000: parse 14 s, transfer 28 s, one core). Open-source
+  OCCT 8 has no parallel STEP reader (OCCT's multi-threaded transfer is a commercial add-on), and turning off shape
+  healing is not possible in OCCT 8 (`read.step.sequence` is gone). Next options: cache by file hash (re-render of
+  CC-000 is then about 46 s), or read the assembly in parallel worker processes.
+- Next largest: exact edge sampling, 20 s on CC-000 (213k edges, Python per edge in 10 workers).
+- Fixes found while testing: flat faces seen edge-on gave fake outlines (float noise); cylinder strips had no smoothed
+  normals (every vertex is on a cap edge), so outlines went missing until normals were smoothed per corner; outlines
+  seen end-on (vertical extrusions in the top view) collapsed to points and made the joining step 54 s; a circle seen
+  edge-on was lost by straight-line thinning. All fixed and checked on small test parts (filleted box with holes, sphere and torus, slanted cylinders, a grid of
+  900 tall cylinders).
+- Known left: hidden back edges that lie exactly under a visible edge draw as short dashes on top of it (harmless on
+  paper, extra DXF entities); some cast-surface outlines are a little rough.
+

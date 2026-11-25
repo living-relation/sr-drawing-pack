@@ -412,3 +412,10 @@ Entry format: ID, Status, Context, Decision, Rejected, Supersedes, Reopen if.
 - Rejected: teaching the renderer to load external references now (H53a).
 - Supersedes: the PDM part of ADR-046.
 - Reopen if: the PDM work settles (ADR-047) or the drawing app must read STEP files with external references.
+## ADR-051: A drawing that takes over 2 minutes fails (2026-11-24, Daniel)
+- Status: Accepted
+- Context: UHQ timed out or ran 6-20 minutes on large assemblies (docs/RESEARCH.md, "All render tests compared"). Daniel: any size model must become an engineering drawing; size is never the reason, the method or the code is.
+- Decision: Any render mode that takes longer than 2 minutes from the STEP file to finished views on any test model is an automatic fail. Speed work uses the whole PC (all CPU cores, the GPU), not one core. The XQ method (exact B-rep edges, visibility from a GPU depth buffer, `research/render-tests/xq_render.py`) is the first method that meets this on all 16 models.
+- Rejected: per-view timeouts that leave views empty; judging speed with the STEP read left out.
+- Supersedes: the 600 s per-view UHQ timeout of ADR-049, as a pass mark.
+- Reopen if: none.
