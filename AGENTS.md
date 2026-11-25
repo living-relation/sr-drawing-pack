@@ -104,3 +104,5 @@ fails a PR that leaves a top-level `STATE-*.md`. The store path comes from
   SPEC or STATE already answers.
 - Questions are listed by ID only, never numbered (Daniel, 2026-11-25).
 - When only one choice really moves the project forward, take it and say so; do not ask (Daniel, 2026-11-25, ADR-055).
+- Every reply uses workstation-core concise mode (Done / Found / Next / Open); it is always on and never turned off (Daniel, 2026-11-25).
+- Daniel does not read code or patch files: fix the problem on a branch + PR and explain what it was in plain words (Daniel, 2026-11-25).
