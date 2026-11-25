@@ -419,3 +419,40 @@ Entry format: ID, Status, Context, Decision, Rejected, Supersedes, Reopen if.
 - Rejected: per-view timeouts that leave views empty; judging speed with the STEP read left out.
 - Supersedes: the 600 s per-view UHQ timeout of ADR-049, as a pass mark.
 - Reopen if: none.
+## ADR-052: Two render modes: Exact Lines and Quick Look (2026-11-25, Daniel, B1a)
+- Status: Accepted
+- Context: The fix2 and XQ runs (docs/RESEARCH.md) left one method that is both the fastest and the most exact: XQ, exact
+  B-rep edges with visibility from the GPU depth buffer. UHQ and FAST fail ADR-051; HQ and DRAFT are mesh-based.
+- Decision: Two modes, named by what they give. **Exact Lines**: XQ at full depth-buffer resolution with true arcs; used
+  for released files. **Quick Look**: XQ at a 2048 px depth buffer with no arc fitting; for previews while editing.
+  Code: `research/render-tests/xq_render.py --mode exact|quick`.
+- Rejected: XQ with HQ as the fast mode (B1b); XQ only (B1c).
+- Supersedes: the four modes of ADR-040 and the per-model pick of ADR-045; settles ADR-048.
+- Reopen if: a model shows a defect Exact Lines cannot fix, or Quick Look is not much faster on large models.
+## ADR-053: STEP read cached by file hash (2026-11-25, Daniel, B5a)
+- Status: Accepted
+- Context: The STEP read was 48 % of the worst XQ time (CC-000: 42 s of 88 s), on one core; open-source OCCT has no
+  parallel STEP reader.
+- Decision: A STEP is read once. Its shape is kept as `<cache>/<sha256 of the file>.brep` (cache folder: `SRDP_CACHE`,
+  else `~/.cache/sr-drawing-pack`). The file content, not its name or date, decides a cache hit. The file is written
+  under a temporary name and renamed, so a stopped run never leaves a half-written cache.
+- Rejected: parallel STEP read in worker processes (B5b, kept as a later option); no cache (B5c).
+- Supersedes: none.
+- Reopen if: the cache folder grows too large (no clean-up yet; BACKLOG).
+## ADR-054: Fusion Desktop app lock is back (2026-11-25, Daniel, B3a)
+- Status: Accepted
+- Context: AGENTS.md said the Fusion lock was retired (2026-11-22), but the workstation session hook now adds a
+  `fusion-desktop` app lock, separate from the harness.design lock.
+- Decision: Use the workstation `fusion-desktop` lock before a script run in the Fusion app or driving the app
+  (acquire, check in every 10 min, release). Fusion Compute and Fusion Data MCP need no lock.
+- Rejected: keeping the lock retired in this repo (B3b).
+- Supersedes: the 2026-11-22 "Fusion lock retired" line in AGENTS.md.
+- Reopen if: the workstation drops the lock.
+## ADR-055: Act on the one real choice (2026-11-25, Daniel)
+- Status: Accepted
+- Context: Daniel: no reason to ask everything.
+- Decision: When only one choice really moves the project forward, the agent takes its recommendation and reports it.
+  Questions are asked only for real trade-offs, listed by ID only (never numbered).
+- Rejected: asking every decision.
+- Supersedes: none; works with the question-ID rule in AGENTS.md.
+- Reopen if: none.

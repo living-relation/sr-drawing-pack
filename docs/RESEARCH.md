@@ -661,3 +661,48 @@ the 4 views (VTK/OpenGL on the GPU) at the same time as exact edge sampling (10 
 - Known left: hidden back edges that lie exactly under a visible edge draw as short dashes on top of it (harmless on
   paper, extra DXF entities); some cast-surface outlines are a little rough.
 
+
+## Exact Lines and Quick Look: STEP to finished sheet (2026-11-25, ADR-052, ADR-053)
+
+Daniel picked two modes (B1a, ADR-052): **Exact Lines** (XQ with true arc fitting) and **Quick Look** (XQ at 2048 px,
+no arc fitting). `research/render-tests/xq_sheet.py` goes from a STEP file to a finished sheet: the 4 views on the
+11x17 frame (third angle, iso), PDF, DXF, a review PNG and a `<name>.sparkcad.json` hand-over record for sparkCAD
+(kind, part number, description, rev, render mode, PDF, DXF, STEP; no upload). The STEP read is cached by sha256 of the
+file (ADR-053), written to a temp file, then renamed.
+
+Queue `sheet3` on the PC (Ryzen 5 7600X, RTX 3060), all 16 models, Exact Lines, cold cache, times in seconds:
+
+| Model | Total | STEP read | Edges + GPU | Sheet out | Scale | DXF MB |
+|---|---|---|---|---|---|---|
+| Spacer | 5.4 | 0.0 | 1.3 | 1.0 | 2:1 | 0.1 |
+| AOI yoke | 6.0 | 0.0 | 1.8 | 1.1 | 1:2 | 0.2 |
+| Catch can scan | 6.3 | 0.2 | 1.9 | 1.1 | 1:4 | 0.5 |
+| PCV tee | 6.4 | 0.1 | 1.8 | 1.1 | 2:1 | 0.4 |
+| CSB3 body | 6.4 | 0.1 | 2.0 | 1.1 | 1:1 | 0.3 |
+| Bezel | 7.0 | 0.2 | 2.1 | 1.2 | 1:4 | 0.9 |
+| Pedal adapter | 7.5 | 0.5 | 2.4 | 1.2 | 1:1.5 | 0.6 |
+| Knuckle billet LF26 | 8.9 | 0.9 | 2.9 | 1.4 | 1:4 | 1.7 |
+| Fuel hanger | 9.5 | 1.3 | 3.1 | 1.5 | 1:4 | 2.1 |
+| X-carriage asm | 11.1 | 1.5 | 3.3 | 1.6 | 1:10 | 2.5 |
+| DRB102 plate asm | 14.7 | 2.8 | 4.4 | 1.6 | 1:4 | 2.3 |
+| Knuckle rev4b | 18.1 | 8.6 | 2.6 | 1.8 | 1:4 | 3.4 |
+| CC-500 pendant | 22.0 | 10.4 | 6.1 | 1.1 | 1:4 | 0.7 |
+| FC6 cabinet | 36.3 | 17.4 | 6.7 | 1.8 | 1:15 | 3.1 |
+| Fuse box | 40.5 | 16.6 | 11.2 | 3.1 | 1:4 | 9.4 |
+| CC-000 panel | 82.8 | 43.9 | 24.4 | 3.0 | 1:4 | 8.6 |
+
+Re-runs with the STEP cache warm: CC-000 Exact Lines 37.2 s, CC-000 Quick Look 35.2 s, FC6 Quick Look 16.3 s.
+
+- Every model passes ADR-051 from STEP to finished sheet; the worst is 83 s cold and 37 s warm.
+- Quick Look saves little once the cache is warm: the time left is exact edge sampling (23 s on CC-000), which both
+  modes share.
+- Sheet output was the slowest step at first (21 s on CC-000): the handbuilt-cad engine draws every polyline as its own
+  matplotlib line. `render_fast` now lets the engine draw only the frame and text, draws the view lines as one
+  NaN-joined line per style, and writes the DXF view lines in a separate process. The same batching inside
+  handbuilt-cad's `dwg.render` takes the CC-000 sheet from about 25 s to 0.9 s; it is a patch for Daniel to review in
+  that repo (the dash pattern then runs on across line breaks).
+- Fixed in this round: edges seen end-on (cabinet rails in the top view) came out as thousands of copies of one point,
+  which made a 97 MB DXF and a 16 s sheet for FC6 (now 3.1 MB, 1.8 s); the engine's scale list stops at 1:10, so the
+  cabinet overflowed the sheet; scales below 1:10 (1:15, 1:20, 1:25, 1:50, 1:100 ...) now come from `xq_render.pick_scale`.
+- Known left: centre marks on precomputed views, true ARC entities in the DXF (polylines now), dashes from hidden edges
+  under visible ones, rough outlines on cast surfaces, small gaps in the pendant front view, first GPU context up to 6 s.

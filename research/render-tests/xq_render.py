@@ -11,7 +11,12 @@ model size, and each step uses the hardware that suits it:
 Silhouettes of curved faces are not B-rep edges; they come from the mesh, traced inside each triangle where the
 smoothed normal turns edge-on (Hertzmann & Zorin 2000), then fitted back to arcs where they are circular.
 
-Usage:  python xq_render.py <model.step | out_dir with cache.brep> <out_dir> [--res 8192] [--workers 10] [--title NAME]
+Modes (ADR-052): "Exact Lines" (--mode exact, the default): full depth-buffer resolution, true arcs fitted.
+                 "Quick Look" (--mode quick): depth buffer capped at 2048 px, no arc fitting; for previews while editing.
+STEP cache (ADR-053): a STEP is read once; its shape is kept as <cache>/<sha256 of the file>.brep (cache folder:
+SRDP_CACHE, else ~/.cache/sr-drawing-pack). The file's hash, not its name or date, decides a hit.
+
+Usage:  python xq_render.py <model.step | out_dir with cache.brep> <out_dir> [--mode exact|quick] [--res N] [--workers N]
 Needs:  OCP, VTK, numpy, matplotlib. HBCAD_ROOT (optional): the handbuilt-cad view directions and sheet scales,
         so the views match render_modes.py; without it a built-in set is used.
 Writes: lines/XQ_<view>.npz (same format as render_modes.py), xq.json (timings), XQ.png (four views).
@@ -21,6 +26,8 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, HERE)
 VIEWS = ("front", "top", "right", "iso")
+MODES = {"exact": "Exact Lines", "quick": "Quick Look"}
+QUICK_RES = 2048
 PAPER_PX = 0.02            # mm on paper per depth-buffer pixel (target)
 PAPER_DEFL = 0.02          # mm on paper, mesh and edge sampling
 SMOOTH_DEG = 30.0          # a vertex whose triangles are within this of their mean normal is smooth
@@ -41,27 +48,49 @@ def basis(name):
     u = np.cross(c, r)                      # 2-D y axis, the same as the HLR projector gp_Ax2(0, c, r)
     return c, r, u
 
+BIG_SCALES = (1 / 15, 1 / 20, 1 / 25, 1 / 50, 1 / 100, 1 / 200, 1 / 500)    # below the engine's smallest (1:10)
+
+
 def pick_scale(smax):
+    """Largest standard scale that fits; goes below 1:10 for big models (cabinets, frames)."""
     if os.environ.get("HBCAD_ROOT"):
         from render_modes import occ
-        return occ().pick_scale(smax)
-    for s in (5, 4, 2, 1, 0.5, 0.25, 0.2, 0.1, 0.05, 0.02, 0.01):
-        if s <= smax: return s
-    return 0.005
+        s = occ().pick_scale(smax)
+    else:
+        s = next((s for s in (5, 4, 2, 1, 0.5, 0.25, 0.2, 0.1) if s <= smax + 1e-9), 0.1)
+    if s <= smax + 1e-9: return s
+    return next((b for b in BIG_SCALES if b <= smax + 1e-9), BIG_SCALES[-1])
 
 
 # ================================================================ model
 STEP_T = {}
+def cache_dir():
+    d = os.environ.get("SRDP_CACHE") or os.path.join(os.path.expanduser("~"), ".cache", "sr-drawing-pack")
+    os.makedirs(d, exist_ok=True); return d
+
+def file_hash(path):
+    import hashlib
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for b in iter(lambda: f.read(1 << 22), b""): h.update(b)
+    return h.hexdigest()
+
 def load(src, out):
+    """Shape from a STEP (through the hash cache) or from a folder holding cache.brep. Returns (shape, brep path,
+    seconds, read_from_step)."""
     from OCP.BinTools import BinTools
     from OCP.TopoDS import TopoDS_Shape
-    cache = os.path.join(src if os.path.isdir(src) else out, "cache.brep"); t = tic()
+    t = tic()
+    if os.path.isdir(src): cache = os.path.join(src, "cache.brep")
+    else:
+        cache = os.path.join(cache_dir(), file_hash(src) + ".brep"); STEP_T["hash_s"] = round(tic() - t, 2)
     if os.path.isfile(cache):
         s = TopoDS_Shape(); BinTools.Read_s(s, cache); return s, cache, round(tic() - t, 2), False
     from OCP.STEPControl import STEPControl_Reader
-    rd = STEPControl_Reader(); rd.ReadFile(src); STEP_T["parse_s"] = round(tic() - t, 2); t1 = tic()
+    t0 = tic(); rd = STEPControl_Reader(); rd.ReadFile(src); STEP_T["parse_s"] = round(tic() - t0, 2); t1 = tic()
     rd.TransferRoots(); s = rd.OneShape(); STEP_T["transfer_s"] = round(tic() - t1, 2); t1 = tic()
-    BinTools.Write_s(s, cache); STEP_T["cache_write_s"] = round(tic() - t1, 2); return s, cache, round(tic() - t, 2), True
+    tmp = cache + f".{os.getpid()}.tmp"; BinTools.Write_s(s, tmp); os.replace(tmp, cache)   # never a half-written cache
+    STEP_T["cache_write_s"] = round(tic() - t1, 2); return s, cache, round(tic() - t, 2), True
 
 def bbox(s):
     from OCP.Bnd import Bnd_Box
@@ -152,7 +181,7 @@ def sample_edges(args):
     from OCP.BRepLib import BRepLib
     from OCP.BRepAdaptor import BRepAdaptor_Curve
     from OCP.GCPnts import GCPnts_QuasiUniformDeflection
-    from OCP.GeomAbs import GeomAbs_G1, GeomAbs_Line
+    from OCP.GeomAbs import GeomAbs_G1, GeomAbs_Line, GeomAbs_Circle
     s = TopoDS_Shape(); BinTools.Read_s(s, cache)
     m = TopTools_IndexedDataMapOfShapeListOfShape(); TopExp.MapShapesAndAncestors_s(s, TopAbs_EDGE, TopAbs_FACE, m)
     pts, cnt, tan = [], [], []
@@ -170,20 +199,27 @@ def sample_edges(args):
                 t = int(BRep_Tool.Continuity_s(e, f0, f1)) >= int(GeomAbs_G1)
             except Exception: t = False
         try:
-            ad = BRepAdaptor_Curve(e)
-            if ad.GetType() == GeomAbs_Line:
+            ad = BRepAdaptor_Curve(e); ty = ad.GetType()
+            if ty == GeomAbs_Line:
                 p, q = ad.Value(ad.FirstParameter()), ad.Value(ad.LastParameter())
                 P = np.array([[p.X(), p.Y(), p.Z()], [q.X(), q.Y(), q.Z()]])
+            elif ty == GeomAbs_Circle:                      # sampled in numpy: one OCC call, not one per point
+                ci = ad.Circle(); ax = ci.Position(); o, xd, yd = ax.Location(), ax.XDirection(), ax.YDirection(); rr = ci.Radius()
+                u0, u1 = ad.FirstParameter(), ad.LastParameter()
+                da = 2 * np.arccos(max(-1.0, 1 - defl / max(rr, 1e-9))) if rr > defl else np.pi / 4
+                u = np.linspace(u0, u1, max(3, int(np.ceil(abs(u1 - u0) / max(da, 1e-3))) + 1))
+                P = (np.array([o.X(), o.Y(), o.Z()]) + rr * (np.cos(u)[:, None] * np.array([xd.X(), xd.Y(), xd.Z()])
+                     + np.sin(u)[:, None] * np.array([yd.X(), yd.Y(), yd.Z()])))
             else:
                 g = GCPnts_QuasiUniformDeflection(ad, defl)
                 if not g.IsDone() or g.NbPoints() < 2: continue
                 P = np.array([[g.Value(j).X(), g.Value(j).Y(), g.Value(j).Z()] for j in range(1, g.NbPoints() + 1)])
         except Exception:
             continue
-        P = densify(P, step)
-        pts.append(P.astype(np.float64)); cnt.append(len(P)); tan.append(t)
+        pts.append(P); cnt.append(len(P)); tan.append(t)
     if not pts: return np.zeros((0, 3)), np.zeros(0, int), np.zeros(0, bool)
-    return np.concatenate(pts), np.array(cnt), np.array(tan)
+    P, C = densify_all(np.concatenate(pts).astype(np.float64), np.array(cnt), step)
+    return P, C, np.array(tan)
 
 def densify(P, step):
     """Insert points so no gap is longer than step (visibility is tested at every point). Vectorised."""
@@ -191,6 +227,18 @@ def densify(P, step):
     if n.max() == 1: return P
     i = np.repeat(np.arange(len(n)), n); k = np.arange(n.sum()) - np.repeat(np.cumsum(n) - n, n) + 1
     return np.vstack([P[:1], P[i] + (P[i + 1] - P[i]) * (k / n[i])[:, None]])
+
+def densify_all(P, cnt, step):
+    """densify() for many polylines at once (points concatenated, cnt points each). Returns (points, new counts)."""
+    eid = np.repeat(np.arange(len(cnt)), cnt); seg = eid[1:] == eid[:-1]           # segments inside one polyline
+    d = np.linalg.norm(np.diff(P, axis=0), axis=1); n = np.where(seg, np.maximum(1, np.ceil(d / step).astype(int)), 1)
+    # each point i>0 is preceded by n[i-1]-1 inserted points when it continues the same polyline
+    i = np.repeat(np.arange(len(n)), n); k = np.arange(n.sum()) - np.repeat(np.cumsum(n) - n, n) + 1
+    frac = np.where(seg[i], k / n[i], 1.0)
+    Q = np.vstack([P[:1], P[i] + (P[i + 1] - P[i]) * frac[:, None]])
+    new_cnt = np.bincount(np.r_[eid[0], eid[i + 1]], minlength=len(cnt))
+    return Q, new_cnt
+
 
 def edge_count(s):
     from OCP.TopExp import TopExp
@@ -302,7 +350,10 @@ def chain_snap(segs, r, segs3=None):
     return out
 
 def simplify(p, eps=1e-4):
-    """Drop interior points on a straight run; keep points where the line turns back (a circle seen edge-on)."""
+    """Drop repeated points and interior points on a straight run; keep points where the line turns back (a circle
+    seen edge-on). An edge seen end-on collapses to one point and comes back with length 1."""
+    if len(p) > 1:
+        p = p[np.r_[True, np.hypot(*np.diff(p, axis=0).T) > 1e-6]]
     if len(p) < 3: return p
     a, b, c = p[:-2], p[1:-1], p[2:]
     cr = np.abs((b[:, 0] - a[:, 0]) * (c[:, 1] - a[:, 1]) - (b[:, 1] - a[:, 1]) * (c[:, 0] - a[:, 0]))
@@ -315,36 +366,38 @@ def drop_specks(pl, min_len):
 
 
 # ================================================================ main
-def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("src"); ap.add_argument("out")
-    ap.add_argument("--res", type=int, default=0, help="depth-buffer pixels on the long side (0 = from sheet scale)")
-    ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 2)); ap.add_argument("--title", default="")
-    ap.add_argument("--no-fit", action="store_true")
-    a = ap.parse_args(); os.makedirs(os.path.join(a.out, "lines"), exist_ok=True)
-    T = {}; t0 = tic()
-    s, cache, T["load_s"], from_step = load(a.src, a.out); T["from_step"] = from_step; T.update(STEP_T)
+def run(src, out, mode="exact", res=0, workers=None, fit=None, png=True, title=""):
+    """Render the four views. Returns (timings, {view: (vis polylines, tangent polylines, (c, r, u))}); also writes
+    lines/XQ_<view>.npz, xq.json and (png=True) XQ.png into out."""
+    workers = workers or max(1, (os.cpu_count() or 2) - 2); fit = (mode == "exact") if fit is None else fit
+    os.makedirs(os.path.join(out, "lines"), exist_ok=True)
+    class _A: pass
+    a = _A(); a.out, a.res, a.workers, a.no_fit, a.title = out, res, workers, not fit, title
+    T = {"mode": MODES[mode]}; t0 = tic(); STEP_T.clear(); out_lines = {}
+    s, cache, T["load_s"], from_step = load(src, a.out); T["from_step"] = from_step; T.update(STEP_T)
     lo, hi = bbox(s); scale = sheet_scale(lo, hi); size = float(np.linalg.norm(hi - lo))
     defl = PAPER_DEFL / scale
-    # ---- mesh (all cores) and triangles
+    # ---- exact edges, sampled once in 3-D in worker processes, started first so they overlap the mesh and the GPU
+    paper_long = max(np.ptp(np.array([[x, y, z] for x in (lo[0], hi[0]) for y in (lo[1], hi[1]) for z in (lo[2], hi[2])]) @ basis(v)[1]) for v in VIEWS) * scale
+    res = a.res or int(np.clip(paper_long / PAPER_PX, 2048, 16384))
+    if mode == "quick": res = min(res, QUICK_RES)
+    step = 0.7 * size / res                         # about 0.7 px between visibility samples
+    ne = edge_count(s); nw = max(1, min(a.workers, ne // 200 + 1)); bounds = np.linspace(0, ne, nw + 1).astype(int)
+    jobs = [(cache, int(bounds[i]), int(bounds[i + 1]), defl, step) for i in range(nw)]
+    t_edges0 = tic()
+    if nw > 1:
+        from concurrent.futures import ProcessPoolExecutor
+        ex = ProcessPoolExecutor(nw); fut = ex.map(sample_edges, jobs)
+    else:
+        fut = map(sample_edges, jobs)
+    # ---- mesh (all cores) and triangles, while the edge workers run
     from OCP.BRepMesh import BRepMesh_IncrementalMesh
     t = tic(); BRepMesh_IncrementalMesh(s, defl, False, 0.25, True); T["mesh_s"] = round(tic() - t, 2)
     t = tic(); tri = triangles(s, os.path.join(tempfile.gettempdir(), f"xq_{os.getpid()}.stl")); T["tris"] = len(tri)
     V, F = weld(tri); Nraw = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0]).astype(np.float64)
     CN = corner_normals(F, Nraw, len(V))
     T["tri_s"] = round(tic() - t, 2)
-    # ---- exact edges, sampled once in 3-D (all cores), while the GPU draws
-    paper_long = max(np.ptp(np.array([[x, y, z] for x in (lo[0], hi[0]) for y in (lo[1], hi[1]) for z in (lo[2], hi[2])]) @ basis(v)[1]) for v in VIEWS) * scale
-    res = a.res or int(np.clip(paper_long / PAPER_PX, 2048, 16384))
-    step = 0.7 * size / res                         # about 0.7 px between visibility samples
-    ne = edge_count(s); nw = max(1, min(a.workers, ne // 200 + 1)); bounds = np.linspace(0, ne, nw + 1).astype(int)
-    jobs = [(cache, int(bounds[i]), int(bounds[i + 1]), defl, step) for i in range(nw)]
-    t = tic()
-    if nw > 1:
-        from concurrent.futures import ProcessPoolExecutor
-        ex = ProcessPoolExecutor(nw); fut = ex.map(sample_edges, jobs)
-    else:
-        fut = map(sample_edges, jobs)
-    dr = DepthRenderer(V, F); T["gpu_upload_s"] = round(tic() - t, 2)
+    t = tic(); dr = DepthRenderer(V, F); T["gpu_upload_s"] = round(tic() - t, 2)
     corners = np.array([[x, y, z] for x in (lo[0], hi[0]) for y in (lo[1], hi[1]) for z in (lo[2], hi[2])])
     depth = {}
     for v in VIEWS:
@@ -354,7 +407,7 @@ def main():
     if nw > 1: ex.shutdown()
     EP = np.concatenate([p[0] for p in parts]); EC = np.concatenate([p[1] for p in parts]).astype(int)
     ET = np.concatenate([p[2] for p in parts]).astype(bool)
-    T["edges"] = int(len(EC)); T["edge_pts"] = int(len(EP)); T["edges_gpu_s"] = round(tic() - t, 2); T["workers"] = nw
+    T["edges"] = int(len(EC)); T["edge_pts"] = int(len(EP)); T["edges_gpu_s"] = round(tic() - t_edges0, 2); T["workers"] = nw
     T["res"] = res; T["scale"] = scale; T["views"] = {}
     from render_modes import to_prims, save_lines
     eo = np.r_[0, np.cumsum(EC)]
@@ -379,17 +432,28 @@ def main():
         E = SG
         t_sil = tic() - tv
         tv = tic()
+        vis, tan = [simplify(p) for p in vis], [simplify(p) for p in tan]         # straight runs: end points only
+        vis, tan = [p for p in vis if len(p) > 1], [p for p in tan if len(p) > 1]  # end-on edges are not lines
         if a.no_fit:
             save_lines(os.path.join(a.out, "lines", f"XQ_{v}.npz"), vis, tan)
         else:
-            vis, tan = [simplify(p) for p in vis], [simplify(p) for p in tan]     # straight runs: end points only
             prims = {"vis": [to_prims(p) for p in vis], "tan": [to_prims(p) for p in tan]}
             save_lines(os.path.join(a.out, "lines", f"XQ_{v}.npz"), vis, tan, prims)
+        out_lines[v] = (vis, tan, (c, r, u))
         T["views"][v] = dict(gpu_s=t_gpu, edges_s=round(t_edges, 2), sil_s=round(t_sil, 2), fit_s=round(tic() - tv, 2),
                              vis=len(vis), tan=len(tan), sil_edges=int(len(E)))
     T["total_s"] = round(tic() - t0, 2)
-    json.dump(T, open(os.path.join(a.out, "xq.json"), "w"), indent=1); print(json.dumps(T))
-    draw_png(a.out, a.title or os.path.basename(os.path.normpath(a.out)), T)
+    json.dump(T, open(os.path.join(a.out, "xq.json"), "w"), indent=1)
+    if png: draw_png(a.out, a.title or os.path.basename(os.path.normpath(a.out)), T)
+    return T, out_lines
+
+def main():
+    ap = argparse.ArgumentParser(); ap.add_argument("src"); ap.add_argument("out")
+    ap.add_argument("--mode", choices=sorted(MODES), default="exact")
+    ap.add_argument("--res", type=int, default=0, help="depth-buffer pixels on the long side (0 = from sheet scale)")
+    ap.add_argument("--workers", type=int, default=0); ap.add_argument("--title", default="")
+    a = ap.parse_args()
+    T, _ = run(a.src, a.out, a.mode, a.res, a.workers or None, title=a.title); print(json.dumps(T))
 
 def draw_png(out, title, T):
     import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
@@ -405,7 +469,7 @@ def draw_png(out, title, T):
             ax.add_collection(LineCollection([p for p, k in items if k == key], linewidths=lw, colors=col))
         ax.autoscale(); ax.set_aspect("equal"); ax.axis("off"); tv = T["views"][v]
         ax.set_title(f"XQ {v.upper()}: {tv['vis'] + tv['tan']} lines", fontsize=9)
-    fig.suptitle(f"XQ on {title}: total {T['total_s']} s (load {T['load_s']} s, {T['tris']:,} triangles, {T['edges']:,} edges, "
+    fig.suptitle(f"{T['mode']} on {title}: total {T['total_s']} s (load {T['load_s']} s, {T['tris']:,} triangles, {T['edges']:,} edges, "
                  f"depth {T['res']} px, {T['workers']} workers)", fontsize=10)
     fig.savefig(os.path.join(out, "XQ.png"), dpi=110); plt.close(fig)
 
