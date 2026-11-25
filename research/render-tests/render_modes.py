@@ -24,6 +24,7 @@ VIEWS = ("front", "top", "right", "iso")
 MODES = ("UHQ", "HQ", "DRAFT", "FAST")
 PAPER_DEFL, ARC_TOL, SS = 0.02, 0.02, 3            # mm on paper; mm on the model; supersampling factor
 CHILD_TIMEOUT = 1800                                 # s, for the HQ/DRAFT and FAST children
+UHQ_OUTLINE_DEFL = 0.05                              # mm, mesh for the UHQ outline pass (H56 fix)
 def tic(): return time.perf_counter()
 
 
@@ -106,7 +107,8 @@ def _fits(P, tol):
     if np.abs(np.hypot(P[:, 0] - cx, P[:, 1] - cy) - r).max() > tol: return None
     a = np.unwrap(np.arctan2(P[:, 1] - cy, P[:, 0] - cx)); da = np.diff(a)
     if not (np.all(da > 0) or np.all(da < 0)) or np.abs(da).max() > 0.8: return None
-    return cx, cy, r, a[0], a[-1]
+    if (r * (1 - np.cos(np.abs(da) / 2))).max() > tol: return None   # H54 fix: the arc between two points must
+    return cx, cy, r, a[0], a[-1]                                    # stay within tol of their chord (no bowed lines)
 
 def to_prims(P, tol=ARC_TOL, min_pts=5):
     """[('L', pts) | ('A', cx, cy, r, a0, a1) | ('C', cx, cy, r)] for one polyline."""
@@ -181,6 +183,17 @@ def exact_hlr(shape, name):
                 if g.IsDone() and g.NbPoints() > 1:
                     lines.append(np.array([[g.Value(i).X(), g.Value(i).Y()] for i in range(1, g.NbPoints() + 1)]))
         res.append(lines)
+    # H56 fix: exact outline tracing drops the silhouettes of free-form faces (CC-500 pendant). Add the outlines of
+    # the polygonal pass (visible silhouettes only) so every curved body keeps its outline; sharp and tangent edges
+    # stay exact.
+    from OCP.BRepMesh import BRepMesh_IncrementalMesh
+    from OCP.HLRBRep import HLRBRep_PolyAlgo, HLRBRep_PolyHLRToShape
+    BRepMesh_IncrementalMesh(shape, UHQ_OUTLINE_DEFL, False, 0.25, True)
+    pa = HLRBRep_PolyAlgo(); pa.Load(shape); pa.Projector(projector(name)); pa.Update()
+    ph = HLRBRep_PolyHLRToShape(); ph.Update(pa)
+    # fix 2 (pendant front view): exact Hide() also drops some sharp edges on those faces; add the polygonal visible
+    # edges too. Exact curves are kept where they exist; the polygonal set fills the gaps.
+    res[0] += _pieces(ph.OutLineVCompound()) + _pieces(ph.VCompound()); print("OUTLINES_DONE", round(tic() - t, 1), flush=True)
     return res[0], res[1], arcs
 
 # ---- FAST DRAFT: mesh creases + silhouettes, z-buffer visibility (vectorised)
@@ -221,13 +234,17 @@ def mesh_lines(m, name, N, nbhd, crease_deg=25.0):
         z = np.where(np.isinf(zb), np.inf, zb); pad = np.pad(z, 1, constant_values=np.inf)
         zb = np.min([pad[1 + dy:N + 1 + dy, 1 + dx:N + 1 + dx] for dy in (-1, 0, 1) for dx in (-1, 0, 1)], axis=0)
         zb[np.isinf(zb)] = -np.inf                                   # nothing drawn there: an edge point is in front
+    # H56 fix: an edge where a face turns away (silhouette, or a face seen edge-on) shares its pixels with that face's
+    # nearer points, so a fixed depth tolerance hides it. Tolerance per edge = depth span of its two faces + 2.5 px.
+    span = np.ptp(m.triangles @ c, axis=1); fs = np.maximum(span[fa[keep][:, 0]], span[fa[keep][:, 1]])
+    tol_e = np.r_[np.minimum(fs, 20 / k), np.zeros(len(E) - len(fs))] + 2.5 / k   # capped at 20 px: no see-through
     P0, P1 = m.vertices[E[:, 0]], m.vertices[E[:, 1]]
     n = np.maximum(2, (np.linalg.norm(P1 - P0, axis=1) * k / 1.5).astype(int) + 2)
     idx = np.repeat(np.arange(len(E)), n); off = np.r_[0, np.cumsum(n)[:-1]]
     t = (np.arange(n.sum()) - off[idx]) / (n[idx] - 1)
     P = P0[idx] + t[:, None] * (P1 - P0)[idx]
     px = np.clip(np.rint((P @ r - lo[0]) * k), 0, N - 1).astype(int); py = np.clip(np.rint((P @ u - lo[1]) * k), 0, N - 1).astype(int)
-    seen = (P @ c) >= zb[py, px] - 2.5 / k
+    seen = (P @ c) >= zb[py, px] - tol_e[idx]
     both = seen[:-1] & seen[1:] & (idx[:-1] == idx[1:]); q = np.c_[P @ r, P @ u]
     return list(np.stack([q[:-1][both], q[1:][both]], axis=1))
 

@@ -23,8 +23,9 @@ Source: Daniel's instruction of 2026-11-22 (follow the style note), reconciled w
 - Visible edges only. Never hidden lines, in any view, and no switch for them (ADR-033).
 - Lines are smooth and continuous and never look like a mesh, whatever the model is (ADR-039). A mesh body is drawn
   from its creases and silhouettes, never from its triangles.
-- Render modes per view (ADR-040): UHQ exact B-rep, HQ fast joined, DRAFT fast pieces, FAST DRAFT mesh creases and
-  silhouettes. Released files use HQ or UHQ.
+- Render modes per view (ADR-052): **Exact Lines** (exact B-rep edges, visibility from the GPU depth buffer, true arcs)
+  and **Quick Look** (the same at a 2048 px depth buffer, no arc fitting, for previews while editing). Released files
+  use Exact Lines. Any mode over 2 minutes from STEP to views on any model fails (ADR-051).
 - Tangent edges: three settings per view, hidden, drawn or partial (ADR-040). Partial hides the start and end
   segments of each tangent edge, like SOLIDWORKS "Hide ends" (ADR-042). Default: drawn, thin solid, in every
   view (this differs from handbuilt-cad DRAWING-RULES 16 on purpose).

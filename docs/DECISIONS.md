@@ -366,3 +366,93 @@ Entry format: ID, Status, Context, Decision, Rejected, Supersedes, Reopen if.
 - Rejected: per-clone `core.autocrlf` settings.
 - Supersedes: none.
 - Reopen if: a tool needs CRLF files.
+
+## ADR-045: Render mode chosen from results, per model (2026-11-24, Daniel, H46)
+- Status: Accepted. No fixed default yet.
+- Context: The render tests (docs/RESEARCH.md, "Render tests on real models", PR #34) recommended HQ by default, UHQ in the background, and asked whether DRAFT stays its own mode (H46).
+- Decision: No default mode is set yet. Every render test shows Daniel the results of all four modes side by side (compare sheet, mode picker, times, sizes), and he picks the mode for that model. All four modes stay until the results settle a default.
+- Rejected: fixing HQ as the default now; dropping DRAFT now.
+- Supersedes: none; refines ADR-040.
+- Reopen if: Daniel's picks over the H43 models point to one default.
+
+## ADR-046: More render-test models (2026-11-24, Daniel, H43)
+- Status: Accepted
+- Context: ADR-042 named the test models; the RTR file was not found, and the AOI and PDM picks were open (H43).
+- Decision: Test all three AOI designs ("Assembly Fixture, AOI XY", "AOI v3", "AOI Assembly, Prototype Fixture, DRG") and all three PDM designs (custom-pdm-enclosure-v2c-F1, CPDM-ENC-109, CPDM-HAR-203). For RTR, look for big models in Daniel's OneDrive models folder and his Fusion hubs. Hub folder "RTR v2" (SparkleBots / Dan) is empty, so RTR is replaced by the biggest STEP models found there until Daniel names the RTR file.
+- Rejected: one pick per family.
+- Supersedes: none; refines ADR-042 (test models).
+- Reopen if: Daniel names the RTR file.
+
+## ADR-047: Test models from the OneDrive models folder only, for now (2026-11-24, Daniel, H48)
+- Status: Accepted
+- Context: Hub files are being moved and work is still happening on the PDM; a live open of the PDM assembly froze Fusion (BACKLOG 2026-11-24).
+- Decision: Until Daniel says otherwise, render tests use STEP files from his OneDrive models folder only. No hub files and no opens in Fusion.
+- Rejected: opening hub designs by file id; using STEP files from other folders.
+- Supersedes: the hub-file parts of ADR-042 and ADR-046 (models), for now.
+- Reopen if: Daniel says the hub and PDM work have settled.
+
+## ADR-048: Two render modes, named by what they give (2026-11-24, Daniel, H52)
+- Status: Accepted. Which two, and their names, open (H55).
+- Context: The four mode names (UHQ, HQ, DRAFT, FAST DRAFT) do not match the results (docs/RESEARCH.md, "All render tests compared").
+- Decision: Keep two modes: one very fast that may give up line quality, one with accurate, high-quality lines that may take longer. Pick them from the compiled results and rename them by what they actually give.
+- Rejected: four modes; the current names.
+- Supersedes: the four-mode list of ADR-040 and the per-model pick of ADR-045.
+- Reopen if: none.
+## ADR-049: Every method must make working views before the pick (2026-11-24, Daniel, H56)
+- Status: Accepted
+- Context: UHQ and FAST lost outlines on the CC-500 pendant; HQ bowed the AOI yoke slots. Daniel will not pick two modes (ADR-048, H55) until every method has had the chance to make working views.
+- Decision: Each method is fixed until it makes complete, correct views on every test model, then all models are re-run with the fixed code. A method that cannot be made to work is out of the running. Fixes so far (`research/render-tests/render_modes.py`): HQ arc fitting checks the arc between points (no bowed lines); UHQ adds the polygonal outlines that exact tracing drops on free-form faces; FAST uses a per-edge depth tolerance (face depth span, capped at 20 px) so silhouettes are not hidden. UHQ timeout raised to 600 s per view for the re-run.
+- Rejected: picking from results where a method failed for a fixable reason.
+- Supersedes: none; works with ADR-048.
+- Reopen if: none.
+## ADR-050: PDM shell STEP skipped for now (2026-11-24, Daniel, H53)
+- Status: Accepted
+- Context: The PDM STEP in the models folder (`custom-pdm-enclosure-revF`) holds only the assembly tree; its parts are external references to `Parts/*.stp`, which render_modes.py does not read.
+- Decision: Skip the PDM model in the render tests for now (H53b). The renderer is not changed to load external references.
+- Rejected: teaching the renderer to load external references now (H53a).
+- Supersedes: the PDM part of ADR-046.
+- Reopen if: the PDM work settles (ADR-047) or the drawing app must read STEP files with external references.
+## ADR-051: A drawing that takes over 2 minutes fails (2026-11-24, Daniel)
+- Status: Accepted
+- Context: UHQ timed out or ran 6-20 minutes on large assemblies (docs/RESEARCH.md, "All render tests compared"). Daniel: any size model must become an engineering drawing; size is never the reason, the method or the code is.
+- Decision: Any render mode that takes longer than 2 minutes from the STEP file to finished views on any test model is an automatic fail. Speed work uses the whole PC (all CPU cores, the GPU), not one core. The XQ method (exact B-rep edges, visibility from a GPU depth buffer, `research/render-tests/xq_render.py`) is the first method that meets this on all 16 models.
+- Rejected: per-view timeouts that leave views empty; judging speed with the STEP read left out.
+- Supersedes: the 600 s per-view UHQ timeout of ADR-049, as a pass mark.
+- Reopen if: none.
+## ADR-052: Two render modes: Exact Lines and Quick Look (2026-11-25, Daniel, B1a)
+- Status: Accepted
+- Context: The fix2 and XQ runs (docs/RESEARCH.md) left one method that is both the fastest and the most exact: XQ, exact
+  B-rep edges with visibility from the GPU depth buffer. UHQ and FAST fail ADR-051; HQ and DRAFT are mesh-based.
+- Decision: Two modes, named by what they give. **Exact Lines**: XQ at full depth-buffer resolution with true arcs; used
+  for released files. **Quick Look**: XQ at a 2048 px depth buffer with no arc fitting; for previews while editing.
+  Code: `research/render-tests/xq_render.py --mode exact|quick`.
+- Rejected: XQ with HQ as the fast mode (B1b); XQ only (B1c).
+- Supersedes: the four modes of ADR-040 and the per-model pick of ADR-045; settles ADR-048.
+- Reopen if: a model shows a defect Exact Lines cannot fix, or Quick Look is not much faster on large models.
+## ADR-053: STEP read cached by file hash (2026-11-25, Daniel, B5a)
+- Status: Accepted
+- Context: The STEP read was 48 % of the worst XQ time (CC-000: 42 s of 88 s), on one core; open-source OCCT has no
+  parallel STEP reader.
+- Decision: A STEP is read once. Its shape is kept as `<cache>/<sha256 of the file>.brep` (cache folder: `SRDP_CACHE`,
+  else `~/.cache/sr-drawing-pack`). The file content, not its name or date, decides a cache hit. The file is written
+  under a temporary name and renamed, so a stopped run never leaves a half-written cache.
+- Rejected: parallel STEP read in worker processes (B5b, kept as a later option); no cache (B5c).
+- Supersedes: none.
+- Reopen if: the cache folder grows too large (no clean-up yet; BACKLOG).
+## ADR-054: Fusion Desktop app lock is back (2026-11-25, Daniel, B3a)
+- Status: Accepted
+- Context: AGENTS.md said the Fusion lock was retired (2026-11-22), but the workstation session hook now adds a
+  `fusion-desktop` app lock, separate from the harness.design lock.
+- Decision: Use the workstation `fusion-desktop` lock before a script run in the Fusion app or driving the app
+  (acquire, check in every 10 min, release). Fusion Compute and Fusion Data MCP need no lock.
+- Rejected: keeping the lock retired in this repo (B3b).
+- Supersedes: the 2026-11-22 "Fusion lock retired" line in AGENTS.md.
+- Reopen if: the workstation drops the lock.
+## ADR-055: Act on the one real choice (2026-11-25, Daniel)
+- Status: Accepted
+- Context: Daniel: no reason to ask everything.
+- Decision: When only one choice really moves the project forward, the agent takes its recommendation and reports it.
+  Questions are asked only for real trade-offs, listed by ID only (never numbered).
+- Rejected: asking every decision.
+- Supersedes: none; works with the question-ID rule in AGENTS.md.
+- Reopen if: none.

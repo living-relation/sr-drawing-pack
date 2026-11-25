@@ -50,7 +50,8 @@ fails a PR that leaves a top-level `STATE-*.md`. The store path comes from
 - `research/fusion-data/`: retired (ADR-029); the data file is sr-export's `<name>.bom.json`.
 - `research/thumbnails/`: BOM thumbnails from a STEP with the F3D viewer. Needs `F3D_EXE` (path to f3d.exe).
 - `research/real-test/`: whole-chain test on a real Fusion design, and the hidden-line speed test (`hlr_speed.py`).
-- `research/render-tests/`: render-mode tests (ADR-040) on real models. Needs `HBCAD_ROOT`; `F3D_EXE` optional.
+- `research/render-tests/`: render-mode tests on real models. `xq_render.py` is the XQ modes (ADR-052); `xq_sheet.py` makes
+  a sheet (PDF, DXF, PNG) and the sparkCAD hand-over record from a STEP. Needs `HBCAD_ROOT`; `F3D_EXE` optional.
 
 ## Coordination
 - One coordinator chat owns the root STATE. Workers are dispatched from it, one branch each, each with
@@ -90,7 +91,8 @@ fails a PR that leaves a top-level `STATE-*.md`. The store path comes from
   starts with `SRDP_SCRATCH`, and close only that.
 - Never call sheets or views APIs on a drawing that has no model reference. It hung Fusion once.
 - `execute_python` runs on Fusion's main thread: a hang kills the MCP. Keep calls short.
-- The Fusion lock is retired (Daniel, 2026-11-22). Do not take or check it.
+- Local Fusion Desktop has its own app lock, `fusion-desktop` (ADR-054): take it before a script run in the Fusion app or
+  driving the app, check in every 10 min, release when done (workstation `instructions/projects-AGENTS.md`, section 5).
 - Tests and exports use local desktop Fusion, the way engineers will use the app, not Fusion Compute (ADR-042).
 - Do not start or stop the workstation workers.
 - Nothing is installed into Fusion's AddIns folder until Daniel approves an iteration. When approved,
@@ -98,5 +100,9 @@ fails a PR that leaves a top-level `STATE-*.md`. The store path comes from
   sr-export, sr-fastener, sr-drawing-pdf).
 
 ## Asking Daniel
-- Multiple choice, one letter plus a number (A1, B2), with a recommendation. Never ask what DECISIONS,
+- Every question ID is one capital letter plus one digit, never more than 2 characters (A1 ... Z9); every choice is one lower-case letter (A1a, A1b), with a recommendation (Daniel, 2026-11-24). IDs still come from the one counter (`Question_Counter`, coordinator-kit); old H<n> IDs keep their meaning. Never ask what DECISIONS,
   SPEC or STATE already answers.
+- Questions are listed by ID only, never numbered (Daniel, 2026-11-25).
+- When only one choice really moves the project forward, take it and say so; do not ask (Daniel, 2026-11-25, ADR-055).
+- Every reply uses workstation-core concise mode (Done / Found / Next / Open); it is always on and never turned off (Daniel, 2026-11-25).
+- Daniel does not read code or patch files: fix the problem on a branch + PR and explain what it was in plain words (Daniel, 2026-11-25).
