@@ -17,7 +17,33 @@ import array
 import json
 import math
 import os
+import re
 import struct
+
+# Hardware draws as its outline only (sheet2d.project). Matched on the
+# component name: SR Fastener style codes (SBH-, NHX-, WSL-, PEM SO-/FHS- ...),
+# words like screw, nut, washer, standoff, and ISO/DIN screw standards.
+# Connector screw plugs and terminals are not hardware.
+HARDWARE_RE = re.compile(
+    r'(^|[\s,(])(SBH|SHCS|SCH|BHCS|FHCS|FHS|FH|SO|SOS|BSO|TBSO|CSOS|NHX|NTN|NHR|NLN|NYL|WSL|WFL|WSP|PEM)[-\s]'
+    r'|\b(screws?|bolts?|nuts?|washers?|standoffs?|spacers?|rivets?|dowels?|heat[- ]?set|threaded insert)\b'
+    r'|\b(ISO|DIN)\s?\d{3,5}\b|^M\d+(\.\d+)?\s*[xX]\s*\d+'
+    r'|\u87ba|\u5185\u516d\u89d2|\u5782\u7247|\u76f2\u5b54',
+    re.IGNORECASE)
+NOT_HARDWARE_RE = re.compile(r'\b(plug|terminal|connector|conn|header|socket,|receptacle|recepticle)\b', re.IGNORECASE)
+
+
+def is_hardware(name):
+    """True for fasteners and similar hardware by component name."""
+    name = name or ''
+    return bool(HARDWARE_RE.search(name)) and not NOT_HARDWARE_RE.search(name)
+
+
+def component_name(occ_path):
+    """'Assy:1+Screw M3:4' -> 'Screw M3'."""
+    last = (occ_path or '').split('+')[-1]
+    return last.rsplit(':', 1)[0] if ':' in last else last
+
 
 CREASE_DEG = 20.0
 CURVED_DEG = 0.5
@@ -89,17 +115,25 @@ def _xv(m, n):
     return (v[0] / length, v[1] / length, v[2] / length)
 
 
-def place(body, matrix, scale=1.0):
-    """One mesh part: a unique body's mesh and features moved by a 4x4 row-major matrix."""
+def place(body, matrix, scale=1.0, meta=None):
+    """One mesh part: a unique body's mesh and features moved by a 4x4 row-major matrix.
+
+    meta (optional dict) rides along as the part's sixth item; its rotation is
+    filled in so placements with the same rotation can share work."""
     pts, tris, edges, smooth = body
     m = list(matrix)
     m = [m[0] * scale, m[1] * scale, m[2] * scale, m[3] * scale,
          m[4] * scale, m[5] * scale, m[6] * scale, m[7] * scale,
          m[8] * scale, m[9] * scale, m[10] * scale, m[11] * scale]
     rot = m[:3] + [0.0] + m[4:7] + [0.0] + m[8:11] + [0.0]
-    return ('mesh', [_xf(m, p) for p in pts], tris,
-            [([_xf(m, p) for p in poly], style) for poly, style in edges],
-            [(_xf(m, a), _xf(m, b), _xv(rot, n1), _xv(rot, n2)) for a, b, n1, n2 in smooth])
+    out = ('mesh', [_xf(m, p) for p in pts], tris,
+           [([_xf(m, p) for p in poly], style) for poly, style in edges],
+           [(_xf(m, a), _xf(m, b), _xv(rot, n1), _xv(rot, n2)) for a, b, n1, n2 in smooth])
+    if meta is None:
+        return out
+    meta = dict(meta)
+    meta['rot'] = tuple(round(v, 6) for v in (m[0], m[1], m[2], m[4], m[5], m[6], m[8], m[9], m[10]))
+    return out + (meta,)
 
 
 def read_meshes(path):
@@ -127,8 +161,11 @@ def read_meshes(path):
     return out
 
 
-def load_fusion_dump(folder):
-    """(parts, info) from a folder written by fusion_read: millimetres, one part per placement."""
+def load_fusion_dump(folder, hardware_outline=True):
+    """(parts, info) from a folder written by fusion_read: millimetres, one part per placement.
+
+    With hardware_outline, parts whose component name is hardware (is_hardware)
+    draw only their outline."""
     with open(os.path.join(folder, 'occurrences.json'), encoding='utf-8') as handle:
         occ = json.load(handle)
     scale = 10.0 if occ.get('units', 'cm') == 'cm' else 1.0
@@ -141,10 +178,14 @@ def load_fusion_dump(folder):
         edges, smooth = mesh_features(pts, tris)
         bodies[key] = (pts, tris, edges, smooth)
     parts = []
+    hardware = 0
     for item in occ['placements']:
         body = bodies.get(item['key'])
         if body is not None:
-            parts.append(place(body, item['xf'], scale))
+            name = component_name(item.get('occ'))
+            outline = bool(hardware_outline and is_hardware(name))
+            hardware += outline
+            parts.append(place(body, item['xf'], scale, {'key': item['key'], 'name': name, 'outline': outline}))
     names = {}
     for b in occ['bodies']:
         names[b['key']] = b.get('name') or ''
@@ -153,6 +194,7 @@ def load_fusion_dump(folder):
         'unique_bodies': len(bodies),
         'placements': len(occ['placements']),
         'missing': len(occ['placements']) - len(parts),
+        'hardware': hardware,
         'triangles': sum(len(p[2]) for p in parts),
         'names': names,
     }

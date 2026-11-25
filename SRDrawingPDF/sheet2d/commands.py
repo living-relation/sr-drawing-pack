@@ -90,6 +90,9 @@ COMMAND_DOCS = {
     'move_view': 'Move or change a view frame. id is required.',
     'delete_view': 'Delete a view frame. Missing id is a no-op.',
     'view_caption': 'The caption lines a view will print (empty at the sheet scale).',
+    'set_view_scale': 'Give one view its own scale (\'1:30\', \'2:1\', any ratio) or \'sheet\' to follow the sheet. Generated views are laid out again.',
+    'set_sheet_scale': 'Set the sheet scale (title block). Views without their own scale follow it. Generated views are laid out again.',
+    'set_view_options': 'Small-line rules for generated views: min_line_mm (smallest line on paper) and small_feature_mm (smaller features keep only their outline). 0 turns one off.',
     'add_detail_view': 'Engineer-only: add or edit a detail view (SOLIDWORKS Detail View options). Never added automatically.',
     'suggest_details': 'Flag places that may want a detail view (section features, crowded small features). Changes no sheet.',
     'add_suggestion': 'Record one suggestion from an outside AI pass. Changes no sheet.',
@@ -721,6 +724,74 @@ def _cmd_view_caption(doc, args):
     return {'id': el['id'], 'sheet_scale': sc, 'caption': caption_lines(shown, sc)}
 
 
+def _scale_text(value):
+    from .annotate import scale_value
+    from .viewsheet import scale_label
+    if value in (None, '', 'sheet', 'SHEET'):
+        return None
+    v = scale_value(value)
+    if v is None:
+        raise ValueError('scale must be a ratio like 1:30 or 2:1, got %r' % (value,))
+    return scale_label(v)
+
+
+def _cmd_set_view_scale(doc, args):
+    owner, el = find_element(doc, args.get('id'))
+    if el is None or el.get('type') != 'view':
+        raise ValueError('no view %r' % args.get('id'))
+    if el.get('kind') == 'detail':
+        raise ValueError('a detail view scale is set with add_detail_view')
+    text = _scale_text(args.get('scale'))
+    from .annotate import same_scale
+    if text is not None and same_scale(text, sheet_scale(doc, owner)):
+        text = None  # the sheet scale: follow the sheet
+    el['scale'] = text
+    from .viewsheet import relayout
+    problems = relayout(doc, owner.get('id'))
+    shown = resolved_view(doc, owner, el)
+    return {'id': el['id'], 'scale': text, 'caption': caption_lines(shown, sheet_scale(doc, owner)),
+            'problems': problems}
+
+
+def _cmd_set_sheet_scale(doc, args):
+    text = _scale_text(args.get('scale'))
+    if text is None:
+        raise ValueError('scale is required')
+    sheet_id = args.get('sheet')
+    sheets = [sh for sh in doc.sheets if sheet_id in (None, sh.get('id'))]
+    if not sheets:
+        raise ValueError('no sheet %r' % sheet_id)
+    from .annotate import same_scale
+    doc.properties['scale'] = text
+    problems = []
+    from .viewsheet import relayout
+    for sh in sheets:
+        if sh.get('scale'):
+            sh['scale'] = text
+        for el in sh.get('elements') or []:
+            if el.get('type') == 'view' and el.get('kind') != 'detail' and el.get('scale') and same_scale(el['scale'], text):
+                el['scale'] = None
+        problems += relayout(doc, sh.get('id'))
+    return {'scale': text, 'problems': problems}
+
+
+def _cmd_set_view_options(doc, args):
+    out = {}
+    for key in ('min_line_mm', 'small_feature_mm'):
+        if key in args:
+            if args[key] in (None, ''):
+                doc.properties.pop(key, None)
+            else:
+                v = float(args[key])
+                if v < 0:
+                    raise ValueError('%s must be 0 or more' % key)
+                doc.properties[key] = v
+    from .viewsheet import min_line_mm, small_feature_mm
+    out['min_line_mm'] = min_line_mm(doc.properties)
+    out['small_feature_mm'] = small_feature_mm(doc.properties)
+    return out
+
+
 def _cmd_set_hole_tolerance(doc, args):
     if args.get('clear'):
         doc.hole_tol = None
@@ -1106,6 +1177,9 @@ COMMANDS = {
     'move_note_flag': _cmd_move_flag,
     'delete_note_flag': _cmd_delete_flag,
     'place_view': _cmd_place_view,
+    'set_view_scale': _cmd_set_view_scale,
+    'set_sheet_scale': _cmd_set_sheet_scale,
+    'set_view_options': _cmd_set_view_options,
     'move_view': _cmd_move_view,
     'delete_view': _cmd_delete_view,
     'view_caption': _cmd_view_caption,
@@ -1181,6 +1255,9 @@ place_view = _bind('place_view')
 move_view = _bind('move_view')
 delete_view = _bind('delete_view')
 view_caption = _bind('view_caption')
+set_view_scale = _bind('set_view_scale')
+set_sheet_scale = _bind('set_sheet_scale')
+set_view_options = _bind('set_view_options')
 add_detail_view = _bind('add_detail_view')
 suggest_details = _bind('suggest_details')
 add_suggestion = _bind('add_suggestion')

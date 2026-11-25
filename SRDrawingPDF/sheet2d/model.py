@@ -32,6 +32,8 @@ BUILTIN_SIZES = {
     },
 }
 
+# Drawing-wide view settings kept with the title fields (see sheet2d.viewsheet).
+VIEW_OPTIONS = ('min_line_mm', 'small_feature_mm')
 TITLE_FIELDS = (
     'project', 'title', 'pn', 'rev', 'material', 'scale', 'units', 'date', 'drawn', 'source', 'tol',
 )
@@ -108,7 +110,7 @@ class DrawingDocument(object):
         draft = data.get('draft')
         doc.draft = None if draft in (None, '') else int(draft)
         props = data.get('properties') or {}
-        for key in _EMPTY_PROPS:
+        for key in tuple(_EMPTY_PROPS) + VIEW_OPTIONS:
             if key in props:
                 doc.properties[key] = props[key]
         doc.revlog = [_as_entry(e) for e in (data.get('revlog') or [])]

@@ -64,6 +64,9 @@ Pass an `id` or `key` when you create something. Sending the same command again 
 | `place_note_flag` / `move_note_flag` / `delete_note_flag` | A flag balloon. Stores `note_key` |
 | `place_view` / `move_view` / `delete_view` | A view frame: `kind` (`standard`, `section`, `auxiliary`), `label`, `letter`, `scale`, `show_label`. A detail view is not added here |
 | `view_caption` | The caption lines a view will print. Empty for a view at the sheet scale |
+| `set_view_scale` | Give one view its own `scale` (`1:30`, `2:1`, any ratio) or `sheet` to follow the sheet scale. Generated views are laid out again; `problems` lists anything that no longer fits |
+| `set_sheet_scale` | Set the sheet scale (title block). Views without their own scale follow it. Generated views are laid out again |
+| `set_view_options` | `min_line_mm` and `small_feature_mm` for generated views (see "Small lines and hardware") |
 | `add_detail_view` | Engineer only: add or edit a detail view with the SOLIDWORKS Detail View options (below) |
 | `suggest_details` / `add_suggestion` | Record suggestions for the engineer. Changes no sheet |
 | `list_suggestions` / `status_bar` | The suggestions, and the yellow `!` indicator for the status bar |
@@ -240,7 +243,30 @@ The drawing work runs outside Fusion:
 python dev/fusion_sheet.py sheet.pdf --fusion DUMP_FOLDER
 ```
 
-`sheet2d.meshparts.load_fusion_dump` turns the dump into mesh parts. Fusion meshes each face on its own, so face edges show up as repeated nodes; those become the drawn edges. `sheet2d.viewsheet.build_view_sheet` makes front, top, right and trimetric views. It picks the largest standard scale where front, top and right fit together with 16 mm gaps, and keeps the top view clear of the rev table. Top sits above front and right sits to the right of front (third angle). The trimetric uses the sheet scale if it fits to the right of the top view, else a smaller standard scale with a SCALE caption. Each view's lines are kept by a geometry key (`place_view ... geom=`), and both the PDF and the editor draw them. The script prints load, view, sheet and PDF times, and fails the run past 120 seconds.
+`sheet2d.meshparts.load_fusion_dump` turns the dump into mesh parts. Fusion meshes each face on its own, so face edges show up as repeated nodes; those become the drawn edges. `sheet2d.viewsheet.build_view_sheet` makes front, top, right and trimetric views. Each view's lines are kept by a geometry key (`place_view ... geom=`), and both the PDF and the editor draw them. The script prints load, view, sheet and PDF times, and fails the run past 120 seconds.
+
+### Scales
+
+The default is one sheet scale for front, top and right: the largest standard scale where they fit together with 16 mm gaps, with the top view clear of the rev table. Top sits above front and right sits to the right of front (third angle). The trimetric takes the largest standard scale that fits the space left over, to the right of the top view or of the right view, and prints `SCALE` when that differs from the sheet scale. The standard list runs 10:1 to 1:50 and includes 1:20, 1:30 and 1:50 for machines.
+
+Any view can then take its own scale, standard or custom (`set_view_scale`), and the sheet scale can change (`set_sheet_scale`). The title block always shows the sheet scale. A view at another scale prints `SCALE 1:16` under it. After a change the generated views are laid out again in the same pattern; when a view no longer fits, the command still applies and `problems` says what overlaps or runs off. From the script:
+
+```text
+python dev/fusion_sheet.py sheet.pdf --fusion DUMP_FOLDER --sheet-scale 1:30 --view trimetric=1:16
+```
+
+In the editor demo a view made bigger is projected again on a finer depth buffer, so its lines stay sharp.
+
+### Small lines and hardware
+
+Hardware draws as its outline only. A part whose component name is hardware (`meshparts.is_hardware`: SR Fastener style codes such as `SBH-`, `NHX-`, `WSL-`, PEM `SO-` / `FHS-`, words such as screw, nut, washer, standoff, and ISO / DIN screw standards; connector screw plugs and terminals are not hardware) keeps only the edges on its own silhouette. An edge with the part's own face on both sides of it in that view (a hex socket, a chamfer ring, a cone line, a thread line) is left out. A socket or hole counts as part of the silhouette. `load_fusion_dump(..., hardware_outline=False)` or `--all-edges` draws every edge.
+
+Two size rules on paper back this up for every part, set per drawing with `set_view_options`:
+
+- `min_line_mm` (default 0.3): a joined line smaller than this across is not drawn.
+- `small_feature_mm` (default 3.0): a group of touching lines smaller than this across keeps only the lines that reach the group's edge. 0 turns a rule off.
+
+An edge is hidden by the part's own faces only past a slack of about two buffer pixels (for sloped faces on a coarse view). Another part's face hides it past about one pixel, so parts under a lid or a standoff under a screw head stay hidden.
 
 ## Preview outside Fusion
 
