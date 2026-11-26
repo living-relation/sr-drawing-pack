@@ -112,6 +112,13 @@ def test_generate_writes_a_sheet_from_the_read_folder(tmp_path):
     assert doc['properties']['title'] == 'BRACKET V3'
     rows = {(r['desc'], r['qty'], r['pn']) for r in doc['bom']}
     assert rows == {('Bracket', 2, ''), ('Lid', 1, '')}
+    balloons = [el for el in doc['sheets'][0]['elements'] if el.get('type') == 'balloon']
+    assert len(balloons) == len(doc['bom'])
+    assert {el['bom_key'] for el in balloons} == {r['key'] for r in doc['bom']}
+    tri = next(el for el in doc['sheets'][0]['elements'] if el.get('label') == 'TRIMETRIC')
+    for el in balloons:
+        assert tri['x'] <= el['ax'] <= tri['x'] + tri['w']
+        assert tri['y'] <= el['ay'] <= tri['y'] + tri['h']
     labels = [el.get('label') for el in doc['sheets'][0]['elements'] if el.get('type') == 'view']
     assert 'TRIMETRIC' in labels and 'FRONT' in labels
     assert result['editor'] is None

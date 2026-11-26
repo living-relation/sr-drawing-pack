@@ -259,7 +259,7 @@ Run each step as its own short Fusion script (for example through the Fusion MCP
 
 The **SR Sheet** button does this from inside Fusion. Each step is its own event and stays under 5 seconds. Mesh chunks use a 3 second budget. When the read is finished, Fusion starts `generate_sheet.py` in another process and does not wait. That process writes `drawing.json` and `sheet.pdf` in the temp folder and opens the editor (`python dev/sheet_demo.py --drawing drawing.json`). Fusion's window is free the whole time the sheet is built.
 
-With no meshes, the sheet still has front, top, right and trimetric frames, a parts list from the component names (part number blank when the read has none), and the company / project line from the design. With meshes, the same sheet gets view lines from the current builder.
+With no meshes, the sheet still has front, top, right and trimetric frames, a parts list from the component names (part number blank when the read has none), balloons on the trimetric view, and the company / project line from the design. With meshes, the same sheet gets view lines from the current builder.
 
 The drawing work runs outside Fusion:
 

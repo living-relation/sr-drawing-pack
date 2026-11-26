@@ -78,8 +78,12 @@ def build_drawing(out_dir):
     doc = execute(doc, 'set_title', {'field': 'project', 'value': project})['document']
     rows = component_rows(occurrences)
     if rows:
-        doc = execute(doc, 'load_bom_components', {'components': rows, 'replace': True})['document']
-        doc = execute(doc, 'place_bom', {'id': 'bom', 'sheet': 's1', 'anchor': 'bottom_left'})['document']
+        doc = execute(doc, 'bom_from_components', {
+            'sheet': 's1', 'components': rows, 'replace': True, 'anchor': 'bottom_left',
+        })['document']
+        doc = execute(doc, 'auto_balloons', {
+            'sheet': 's1', 'components': rows, 'layout': 'square',
+        })['document']
     return doc
 
 
