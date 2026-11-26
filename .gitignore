@@ -222,6 +222,9 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
+# Title-block templates saved by dev/title_editor.py. A logo file may be inside.
+/formats/
+
 # Fusion / CAD artifacts (this repo is public; keep vendor CAD out)
 *.step
 *.stp

@@ -35,6 +35,9 @@ def render_sheets(doc):
         canvas = Sheet()
         canvas.page_size = (float(spec['width']), float(spec['height']))
         info = resolved_title(doc, sheet, index, n)
+        from .formats import template_for
+        info['title_template'] = template_for(doc, sheet.get('size') or 'B')
+        info['size'] = sheet.get('size') or info.get('size') or 'B'
         zones = spec.get('zones') or [8, 4]
         draw_frame(
             canvas, info, index, n,

@@ -74,7 +74,7 @@ BOM_COLS = (9, 9, 44, 80, 40)
 BOM_COLS_COMPACT = (9, 8, 36, 57, 30)
 # handbuilt-cad drawing/asm.py bom_table(..., h=2.0). There is no bom_table.py.
 # dwg.py turns that into points as h * (72/25.4) / 0.72, which is 7.874 pt
-# in the filed FH-200 parts list.
+# in the filed FH-200 BOM.
 BOM_TEXT_MM = 2.0
 BOM_HEADS = ('ITEM', 'QTY', 'PART NUMBER', 'DESCRIPTION', 'MATERIAL / SPEC')
 BALLOON_R = 5.2
@@ -269,52 +269,18 @@ def draw_frame(sh, info, sheet_no, n_sheets, width=None, height=None, zones=(8, 
         sh.txt(7.5, y, lab, h=2.5)
         sh.txt(width - 7.5, y, lab, h=2.5)
 
-    x1 = width - m
-    x0 = x1 - 178
-    y0 = m
-    y1 = y0 + 52
-    sh.pl([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], 'tb', closed=True)
-
-    def box(a, b, c, d, label, val, vh=3.2, bold=False):
-        sh.pl([(a, b), (c, b), (c, d), (a, d)], 'thin', closed=True)
-        sh.txt(a + 1, d - 1, label, h=1.8, ha='left', va='top')
-        sh.txt((a + c) / 2, (b + d) / 2 - 1.2, val, h=vh, bold=bold)
-
-    title = info.get('title') or ''
-    material = info.get('material') or '-'
-    source = info.get('source') or ''
-    box(x0, y1 - 10, x1, y1, 'COMPANY / PROJECT', info.get('project') or '', 3.2, True)
-    box(x0, y1 - 24, x1, y1 - 10, 'TITLE', title, 4.6 if len(title) < 38 else 3.6, True)
-    box(x0, y1 - 34, x0 + 90, y1 - 24, 'PART / DWG NO.', info.get('pn') or '', 3.2, True)
-    box(x0 + 90, y1 - 34, x0 + 110, y1 - 24, 'REV', info.get('rev') or '', 3.6, True)
-    box(x0 + 110, y1 - 34, x1, y1 - 24, 'MATERIAL', material, 2.6 if len(material) > 22 else 3.0)
-    box(x0, y0 + 8, x0 + 30, y1 - 34, 'SCALE', info.get('scale') or '-', 3.0)
-    box(x0 + 30, y0 + 8, x0 + 52, y1 - 34, 'UNITS', info.get('units') or 'mm', 3.0)
-    size = str(info.get('size') or 'B')
-    box(x0 + 52, y0 + 8, x0 + 80, y1 - 34, 'SIZE', size, 3.6 if len(size) <= 3 else 2.6, True)
-    box(x0 + 80, y0 + 8, x0 + 108, y1 - 34, 'SHEET', '%s OF %s' % (sheet_no, n_sheets), 3.0)
-    box(x0 + 108, y0 + 8, x0 + 140, y1 - 34, 'DATE', info.get('date') or '', 2.8)
-    drawn = info.get('drawn') or ''
-    box(x0 + 140, y0 + 8, x1, y1 - 34, 'DRAWN', drawn, 3.0 if len(drawn) < 20 else 2.4)
-    box(x0, y0, x0 + 140, y0 + 8, 'SOURCE', source, min(2.0, 2.0 * 86 / max(1, len(source))))
-
-    a, b = x0 + 140, y0
-    sh.pl([(a, b), (x1, b), (x1, b + 8), (a, b + 8)], 'thin', closed=True)
-    cx, cy = a + 11, b + 4
-    sh.pl([(cx - 6, cy - 2.2), (cx - 1.5, cy - 1.2), (cx - 1.5, cy + 1.2), (cx - 6, cy + 2.2)], 'thin', closed=True)
-    sh.line((cx - 7, cy), (cx - 0.5, cy), 'ctr')
-    sh.circle((cx + 4, cy), 2.2, 'thin')
-    sh.circle((cx + 4, cy), 1.0, 'thin')
-    sh.txt(a + 27, cy, '3RD ANGLE', h=1.8)
-
-    # Block tolerance box: its own box, joined to the title block, full height.
-    tx0 = x0 - TOL_W
-    sh.pl([(tx0, y0), (x0, y0), (x0, y1), (tx0, y1)], 'tb', closed=True)
-    sh.txt(tx0 + 1, y1 - 1, 'BLOCK TOLERANCE', h=1.8, ha='left', va='top')
-    sh.txt(tx0 + 2, y1 - 4.5, 'UNLESS OTHERWISE SPECIFIED:', h=2.2, ha='left', va='top', bold=True)
-    sh.txt(tx0 + 2, y0 + TOL_TOP, '\n'.join(tol_lines(info.get('tol'))), h=TOL_H, ha='left', va='top')
-
-    if info.get('draft'):
+    from .formats import default_template, draw_template
+    size_name = str(info.get('size') or 'B')
+    template = info.get('title_template') or default_template(size_name if size_name in (
+        'A', 'B', 'C', 'D', 'A4', 'A3', 'A2', 'A1', 'A0') else 'B')
+    if template.get('width') != width or template.get('height') != height:
+        template = dict(template, width=width, height=height)
+    draw_template(sh, template, info, sheet_no, n_sheets)
+    title_boxes = [b for b in template.get('boxes') or [] if b.get('field') != 'tol']
+    if title_boxes and info.get('draft'):
+        x0 = min(float(b['x']) for b in title_boxes)
+        x1 = max(float(b['x']) + float(b['w']) for b in title_boxes)
+        y1 = max(float(b['y']) + float(b['h']) for b in title_boxes)
         label = 'DRAFT %s, NOT RELEASED' % int(info['draft'])
         sh.pl([(x0, y1), (x1, y1), (x1, y1 + 7), (x0, y1 + 7)], 'tb', closed=True)
         sh.txt((x0 + x1) / 2, y1 + 3.5, label, h=3.0, bold=True)

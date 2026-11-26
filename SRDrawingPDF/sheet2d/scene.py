@@ -296,6 +296,11 @@ def _item(it, height):
         return _poly(it[1], height, None, True, fill='#111111')
     if kind == 'tx':
         return _text(it, height)
+    if kind == 'im':
+        _k, x, y, w, h, data, _typ = it
+        return (
+            '<image x="%.3f" y="%.3f" width="%.3f" height="%.3f" href="%s"/>'
+            % (x, height - (y + h), w, h, _esc(data)))
     return ''
 
 
