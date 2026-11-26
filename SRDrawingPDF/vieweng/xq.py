@@ -123,19 +123,24 @@ def _render(step, names, workers=None, mode='exact', tangents=True):
         res = min(res, 2048)
     step_len = 0.7 * size / res
     t_mesh = time.perf_counter()
-    V, F, CN = _mesh_arrays(shape, defl)
-    mesh_s = time.perf_counter() - t_mesh
-    t_edge = time.perf_counter()
-    plain, hardware = _hardware_split(shape)
-    if hardware:
-        if plain is None:
-            points, counts, tangent, analytic = _empty_edges()
+    repeated = _repeated_build(shape, defl, step_len)
+    if repeated is None:
+        V, F, CN = _mesh_arrays(shape, defl)
+        mesh_s = time.perf_counter() - t_mesh
+        t_edge = time.perf_counter()
+        plain, hardware = _hardware_split(shape)
+        if hardware:
+            if plain is None:
+                points, counts, tangent, analytic = _empty_edges()
+            else:
+                points, counts, tangent, analytic = _edges(plain, defl, step_len, workers)
+            hardware = [(solid, _edges(solid, defl, step_len, 1), _solid_triangles(solid)) for solid in hardware]
         else:
-            points, counts, tangent, analytic = _edges(plain, defl, step_len, workers)
-        hardware = [(solid, _edges(solid, defl, step_len, 1), _solid_triangles(solid)) for solid in hardware]
+            points, counts, tangent, analytic = _edges(shape, defl, step_len, workers)
+        edge_s = time.perf_counter() - t_edge
+        unique_solids = None
     else:
-        points, counts, tangent, analytic = _edges(shape, defl, step_len, workers)
-    edge_s = time.perf_counter() - t_edge
+        V, F, CN, points, counts, tangent, analytic, hardware, unique_solids, mesh_s, edge_s = repeated
     depth = _Depth(V, F)
     views = {}
     per = {}
@@ -177,6 +182,7 @@ def _render(step, names, workers=None, mode='exact', tangents=True):
         'total_s': round(time.perf_counter() - t0, 3),
         'per_view': per,
         'res': res,
+        'unique_solids': unique_solids,
     }
     return views, timing
 
@@ -306,6 +312,110 @@ def _mesh_arrays(shape, defl):
     faces = inv.reshape(-1, 3)
     raw = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0]).astype(np.float64)
     return verts, faces, _corner_normals(faces, raw)
+
+
+def _repeated_build(shape, defl, step):
+    """Mesh and sample each repeated solid once, then place the copies.
+
+    Returns None when almost every solid is unique, so that path stays the
+    single mesh of the whole file.
+    """
+    import numpy as np
+    solids = _solid_list(shape)
+    if len(solids) < 2:
+        return None
+    groups = {}
+    order = []
+    for solid in solids:
+        key = _repeat_key(solid)
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        lo, hi = _bbox(solid)
+        groups[key].append((solid, (lo + hi) * 0.5))
+    if len(order) == len(solids):
+        return None
+    import time
+    verts_all, faces_all, cn_all = [], [], []
+    plain_pts, plain_counts, plain_tan, plain_an = [], [], [], []
+    hardware = []
+    vcount = 0
+    mesh_s = edge_s = 0.0
+    for key in order:
+        proto, origin = groups[key][0]
+        t_mesh = time.perf_counter()
+        verts, faces, cn = _mesh_arrays(proto, defl)
+        mesh_s += time.perf_counter() - t_mesh
+        t_edge = time.perf_counter()
+        edges = _edges(proto, defl, step, 1)
+        edge_s += time.perf_counter() - t_edge
+        fastener = _is_fastener(proto)
+        for _solid, center in groups[key]:
+            delta = center - origin
+            moved = verts + delta
+            verts_all.append(moved)
+            faces_all.append(faces + vcount)
+            cn_all.append(cn)
+            vcount += len(moved)
+            shifted = _shift_edges(edges, delta)
+            if fastener:
+                hardware.append((_solid, shifted, moved[faces]))
+            else:
+                hp, hc, ht, ha = shifted
+                if len(hc):
+                    plain_pts.append(hp)
+                    plain_counts.append(hc)
+                    plain_tan.append(ht)
+                    plain_an.extend(ha)
+    if not verts_all:
+        return None
+    if plain_pts:
+        points = np.concatenate(plain_pts)
+        counts = np.concatenate(plain_counts).astype(int)
+        tangent = np.concatenate(plain_tan).astype(bool)
+        analytic = plain_an
+    else:
+        points, counts, tangent, analytic = _empty_edges()
+    return (np.concatenate(verts_all), np.concatenate(faces_all), np.concatenate(cn_all),
+            points, counts, tangent, analytic, hardware, len(order), mesh_s, edge_s)
+
+
+def _shift_edges(edges, delta):
+    points, counts, tangent, analytic = edges
+    if len(points) == 0:
+        return points, counts, tangent, list(analytic)
+    moved = points + delta
+    shifted = []
+    for info in analytic:
+        if not info:
+            shifted.append(None)
+            continue
+        copy = dict(info)
+        ox, oy, oz = info['o']
+        copy['o'] = (ox + float(delta[0]), oy + float(delta[1]), oz + float(delta[2]))
+        shifted.append(copy)
+    return moved, counts, tangent, shifted
+
+
+def _repeat_key(solid):
+    """Same key for copies that differ only by where they sit."""
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.BRepGProp import BRepGProp
+    from OCP.GProp import GProp_GProps
+    from OCP.TopAbs import TopAbs_FACE
+    from OCP.TopExp import TopExp_Explorer
+    from OCP.TopoDS import TopoDS
+    lo, hi = _bbox(solid)
+    size = tuple(round(float(hi[i] - lo[i]), 3) for i in range(3))
+    marks = []
+    explorer = TopExp_Explorer(solid, TopAbs_FACE)
+    while explorer.More():
+        face = _cast(TopoDS, 'Face')(explorer.Current())
+        props = GProp_GProps()
+        BRepGProp.SurfaceProperties_s(face, props)
+        marks.append((int(BRepAdaptor_Surface(face).GetType()), round(float(props.Mass()), 2)))
+        explorer.Next()
+    return (size, tuple(sorted(marks)))
 
 
 def _corner_normals(faces, raw):
