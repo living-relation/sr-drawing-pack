@@ -168,6 +168,21 @@ def _pts_of(line):
     return []
 
 
+def _offscreen_window():
+    """A depth window that does not need a screen.
+
+    The pip VTK build opens an X window by default. A check machine has no
+    display, and that window crashes. OSMesa draws on the CPU instead.
+    """
+    import vtk
+    if hasattr(vtk, 'vtkOSOpenGLRenderWindow'):
+        win = vtk.vtkOSOpenGLRenderWindow()
+    else:
+        win = vtk.vtkRenderWindow()
+    win.SetOffScreenRendering(1)
+    return win
+
+
 def _buffer_size(ext_r, ext_u, res):
     """Pixel size of the depth picture. The long side stays within MAX_RES."""
     longest = max(ext_r, ext_u, 1e-6)
@@ -446,8 +461,7 @@ class _Depth(object):
         actor.SetMapper(mapper)
         self.ren = vtk.vtkRenderer()
         self.ren.AddActor(actor)
-        self.win = vtk.vtkRenderWindow()
-        self.win.SetOffScreenRendering(1)
+        self.win = _offscreen_window()
         self.win.AddRenderer(self.ren)
         self.center = (verts.min(0) + verts.max(0)) / 2
         self.radius = float(np.linalg.norm(verts.max(0) - verts.min(0)) / 2 + 1e-6)
