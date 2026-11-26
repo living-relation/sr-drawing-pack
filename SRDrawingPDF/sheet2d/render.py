@@ -39,8 +39,14 @@ def render_sheets(doc):
         draw_frame(
             canvas, info, index, n,
             width=spec['width'], height=spec['height'], zones=tuple(zones))
-        for el in sheet.get('elements') or []:
+        elements = sheet.get('elements') or []
+        for el in elements:
+            if el.get('type') == 'magline':
+                canvas.line((float(el['x1']), float(el['y1'])), (float(el['x2']), float(el['y2'])), 'thin')
+        for el in elements:
             kind = el.get('type')
+            if kind == 'magline':
+                continue
             if kind == 'view':
                 shown = resolved_view(doc, sheet, el)
                 caption = view_caption(shown, sheet_scale(doc, sheet))

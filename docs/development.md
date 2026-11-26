@@ -38,7 +38,7 @@ From the repo folder, in a terminal:
 python dev/sheet_demo.py
 ```
 
-Open http://127.0.0.1:8765/ . The page draws the sample sheet. To show real views instead, add `--fusion DUMP_FOLDER` (written by `fusion_read.py`) or `--step assembly.step` (needs OCP). Reset goes back to those views. The Scale panel sets the sheet scale and each view's scale (standard list or Custom); views are laid out again and a view at another scale prints its SCALE caption. Small lines sets the minimum line and the small-feature size. Click a BOM row to highlight that part and show its thumbnail. Drag the top band of a BOM piece to move it. Split above or below the selected row. The yellow ! in the status bar is an open detail-view suggestion; Accept adds the view.
+Open http://127.0.0.1:8765/ . The page draws the sample sheet. To show real views instead, add `--fusion DUMP_FOLDER` (written by `fusion_read.py`) or `--step assembly.step` (needs OCP). Reset goes back to those views. The Scale panel sets the sheet scale and each view's scale (standard list or Custom); views are laid out again and a view at another scale prints its SCALE caption. Small lines sets the minimum line and the small-feature size. Click a BOM row to highlight that part and show its thumbnail. Drag the top band of a BOM piece to move it. Drag a balloon to move it; the leader stays where it was. Split above or below the selected row. The yellow ! in the status bar is an open detail-view suggestion; Accept adds the view.
 
 ## Tests
 

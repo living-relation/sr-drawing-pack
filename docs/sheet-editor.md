@@ -53,12 +53,14 @@ Pass an `id` or `key` when you create something. Sending the same command again 
 | `renumber_bom` | New item numbers in list order. Balloons follow the row key |
 | `load_bom_csv` | CSV text or a file. Headers: item, qty, part number, description, material, shown |
 | `load_bom_components` | A list of records with `part_number`, `description`, `material`, `qty` |
+| `bom_from_components` | Roll the assembly component list up to one row per part and place the table (`anchor`: `bottom_left` default, or `above_title`) |
 | `place_bom` / `move_bom` / `remove_bom` | A BOM table piece: `sheet`, `anchor` (`bottom_left` default, `above_title`, `free`); a free piece also takes `x1`, `ytop`, `max_height` (mm) |
 | `split_table` | Split a BOM piece `above` or `below` a `row`. The new piece keeps its header; `anchor` or `x1`/`ytop`/`max_height` place it |
 | `merge_tables` | Merge a split piece back into the piece before it |
 | `select_bom_row` | A row's `thumbnail`, and the balloons and views to highlight for it |
 | `layout_bom` | Which rows fit in each region |
-| `place_balloon` / `move_balloon` / `delete_balloon` | An item balloon. Stores `bom_key`, not a frozen number |
+| `place_balloon` / `move_balloon` / `delete_balloon` | An item balloon. Stores `bom_key`, not a frozen number. Dragging keeps `ax` and `ay` |
+| `auto_balloons` | Balloons with leaders on one view (trimetric by default). `layout`, `reverse`, `ignore_multiple`, `magnetic` |
 | `add_note` / `edit_note` / `delete_note` | Numbered notes |
 | `place_notes` / `move_notes` / `delete_notes` | Where the notes block sits |
 | `place_note_flag` / `move_note_flag` / `delete_note_flag` | A flag balloon. Stores `note_key` |
@@ -199,6 +201,22 @@ A BOM piece's `anchor` sets where it sits. Both anchors follow SOLIDWORKS table 
 Anchored pieces need no `max_height`; they may use the height of the sheet.
 
 `split_table` splits a piece above or below the selected row, as SOLIDWORKS **Split > Horizontally Above / Below** does. The new piece starts at that row, keeps its header (`BILL OF MATERIALS (CONT.)` and the column heads), goes `above_title` by default, and can be moved like any piece. `merge_tables` merges a piece back (SOLIDWORKS **Merge Tables**). Rows that a fixed-height piece cannot hold before the next split are listed in `overflow`.
+
+## BOM from the assembly, and balloons
+
+`bom_from_components` builds the table from the assembly's component list. Each part is one row. `qty` is how many times that part appears. The columns are item, qty, part number, description, and material when the record has a material. A missing part number or description stays blank. The component name is used as the description only when the record has a name and no description. The table is placed on `sheet` at `bottom_left` (the default) or `above_title` (the corner above the title block). Split and drag are the same as any other BOM piece.
+
+`auto_balloons` puts a balloon with a leader on one view. The default view is the trimetric view. Each balloon stores the BOM row key, so the number on the balloon is that row's item number. Options follow the SOLIDWORKS Auto Balloon PropertyManager ([help](https://my.solidworks.com/reader/onlinehelp/2021%252Fenglish%252Fswconnected%252Fswdotworks%252Fhidd_dve_auto_balloon.htm/auto-balloon-propertymanager)):
+
+| Option | Values |
+| --- | --- |
+| `view` | the view to balloon; omitted, the trimetric view |
+| `layout` | `square` (default), `circular`, `top`, `bottom`, `left`, `right` |
+| `reverse` | reverse the order around the view |
+| `ignore_multiple` | true (default): one balloon per BOM row. false: one balloon per instance, still showing that row's item number |
+| `magnetic` | a straight line through the balloons. Ignored for `circular`, as in SOLIDWORKS |
+
+A component record may include `at` as fractions of the view (`[0.3, 0.6]`) or as sheet millimetres (`{'x': 210, 'y': 150}`). That point is where the leader ends. With no point, the leaders are spread inside the view. Balloons are moved so they do not sit on each other, on a view, on the title block, or on the BOM. In the editor, drag a balloon to move it. The leader end stays put. `move_balloon` does the same.
 
 `select_bom_row` is the hook for clicking a row. It returns the row's `thumbnail` (a path or data URI stored on the row, for example from a Fusion export) and `highlight`: the balloons that point at the row and the views whose `components` list holds the row key or its `component` token. Set `thumbnail` and `component` with `add_bom_row`, `edit_bom_row` or `load_bom_components`, and a view's `components` with `place_view`.
 
