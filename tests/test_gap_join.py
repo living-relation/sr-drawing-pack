@@ -1,4 +1,5 @@
 """Joining silhouette pieces must match the old scan, and stay fast."""
+import numpy as np
 import math
 import random
 import time
@@ -72,6 +73,20 @@ def test_a_long_chain_of_pieces_joins_without_a_quadratic_wait():
     assert joined[0][-1] == (4000.0, 0.0)
     assert elapsed < 2.0
     assert len(joined[0]) == 4001
+
+
+def test_many_edges_densify_like_one_edge_at_a_time():
+    import sheet2d.engines  # noqa: F401
+    from vieweng.xq import _densify, _densify_many
+    rng = np.random.default_rng(0)
+    chunks = [np.cumsum(rng.normal(size=(rng.integers(2, 6), 3)), axis=0) for _ in range(12)]
+    chunks.append(np.array([[0.0, 0.0, 0.0]]))
+    dense, counts = _densify_many(chunks, 0.4)
+    alone = [_densify(chunk, 0.4) for chunk in chunks]
+    assert list(counts) == [len(chunk) for chunk in alone]
+    got = np.split(dense, np.cumsum(counts)[:-1])
+    for left, right in zip(got, alone):
+        assert np.allclose(left, right)
 
 
 def test_chain_uses_the_first_matching_end():

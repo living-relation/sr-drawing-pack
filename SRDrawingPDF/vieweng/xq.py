@@ -224,7 +224,7 @@ def _render(step, names, workers=None, mode='exact', tangents=True):
         res = min(res, 2048)
     step_len = 0.7 * size / res
     t_mesh = time.perf_counter()
-    repeated = _repeated_build(shape, defl, step_len, part_names)
+    repeated = _repeated_build(shape, defl, step_len, part_names, workers)
     if repeated is None:
         V, F, CN = _mesh_arrays(shape, defl)
         mesh_s = time.perf_counter() - t_mesh
@@ -403,7 +403,7 @@ def _mesh_arrays(shape, defl):
     return verts, faces, _corner_normals(faces, raw)
 
 
-def _repeated_build(shape, defl, step, part_names=None):
+def _repeated_build(shape, defl, step, part_names=None, workers=None):
     """Mesh and sample each repeated solid once, then place the copies.
 
     Returns None when almost every solid is unique, so that path stays the
@@ -434,14 +434,15 @@ def _repeated_build(shape, defl, step, part_names=None):
     hardware = []
     vcount = 0
     mesh_s = edge_s = 0.0
-    for key in order:
+    protos = [groups[key][0][0] for key in order]
+    t_edge = time.perf_counter()
+    sampled = _sample_prototypes(protos, defl, step, workers)
+    edge_s += time.perf_counter() - t_edge
+    for key, edges in zip(order, sampled):
         proto, origin, proto_name = groups[key][0]
         t_mesh = time.perf_counter()
         verts, faces, cn = _mesh_arrays(proto, defl)
         mesh_s += time.perf_counter() - t_mesh
-        t_edge = time.perf_counter()
-        edges = _edges(proto, defl, step, 1)
-        edge_s += time.perf_counter() - t_edge
         fastener = _is_fastener(proto, proto_name)
         for _solid, center, _name in groups[key]:
             delta = center - origin
@@ -799,11 +800,40 @@ def _fill_mask(tri2, n=64):
     return lo, cell, covered.reshape(n, n)
 
 
+def _cpu_workers(requested, jobs):
+    """How many processes to use. The default is one less than the machine."""
+    if not requested:
+        requested = max(1, (os.cpu_count() or 2) - 1)
+    return max(1, min(int(requested), max(1, jobs)))
+
+
+def _sample_prototypes(shapes, defl, step, workers):
+    """Sample every prototype. Several at once when the machine has more than one core."""
+    paths = [_write_temp_brep(shape, i) for i, shape in enumerate(shapes)]
+    jobs = [(path, 0, 10 ** 12, defl, step) for path in paths]
+    width = _cpu_workers(workers, len(jobs))
+    try:
+        if width > 1 and len(jobs) > 1:
+            from concurrent.futures import ProcessPoolExecutor
+            pool = ProcessPoolExecutor(width)
+            parts = list(pool.map(_sample_edges, jobs))
+            pool.shutdown()
+        else:
+            parts = [_sample_edges(job) for job in jobs]
+    finally:
+        for path in paths:
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+    return parts
+
+
 def _edges(shape, defl, step, workers):
     import numpy as np
     count = _edge_count(shape)
     cache = _write_temp_brep(shape)
-    workers = max(1, min(workers or 1, max(1, count // 400)))
+    workers = _cpu_workers(workers, max(1, count // 400))
     bounds = [int(v) for v in np.linspace(0, count, workers + 1)]
     jobs = [(cache, bounds[i], bounds[i + 1], defl, step) for i in range(workers)]
     if workers > 1:
@@ -828,10 +858,10 @@ def _edges(shape, defl, step, workers):
             analytic)
 
 
-def _write_temp_brep(shape):
+def _write_temp_brep(shape, slot=0):
     import tempfile
     from OCP.BinTools import BinTools
-    path = os.path.join(tempfile.gettempdir(), 'xq_edges_%d.brep' % os.getpid())
+    path = os.path.join(tempfile.gettempdir(), 'xq_edges_%d_%d.brep' % (os.getpid(), slot))
     BinTools.Write_s(shape, path)
     return path
 
@@ -930,18 +960,43 @@ def _sample_edges(args):
                     for j in range(1, deflect.NbPoints() + 1)])
         except Exception:
             continue
-        dense = _densify(sampled, step)
-        pts.append(dense)
-        counts.append(len(dense))
+        pts.append(sampled)
+        counts.append(len(sampled))
         tangent.append(is_tan)
         analytic.append(curve_info)
     if not pts:
         return np.zeros((0, 3)), np.zeros(0, int), np.zeros(0, bool), []
-    return np.concatenate(pts), np.array(counts), np.array(tangent), analytic
+    dense, new_counts = _densify_many(pts, step)
+    return dense, new_counts, np.array(tangent), analytic
+
+
+def _densify_many(chunks, step):
+    """Densify every edge at once. The points match densifying each edge alone."""
+    import numpy as np
+    counts = np.array([len(chunk) for chunk in chunks], int)
+    if counts.sum() == 0:
+        return np.zeros((0, 3)), counts
+    points = np.concatenate(chunks)
+    if len(points) < 2:
+        return points, counts
+    edge_id = np.repeat(np.arange(len(counts)), counts)
+    same = edge_id[1:] == edge_id[:-1]
+    delta = np.linalg.norm(np.diff(points, axis=0), axis=1)
+    pieces = np.where(same, np.maximum(1, np.ceil(delta / max(step, 1e-9)).astype(int)), 1)
+    if pieces.max() == 1:
+        return points, counts
+    index = np.repeat(np.arange(len(pieces)), pieces)
+    k = np.arange(pieces.sum()) - np.repeat(np.cumsum(pieces) - pieces, pieces) + 1
+    frac = np.where(same[index], k / pieces[index], 1.0)
+    dense = np.vstack([points[:1], points[index] + (points[index + 1] - points[index]) * frac[:, None]])
+    owners = np.r_[edge_id[0], edge_id[index + 1]]
+    return dense, np.bincount(owners, minlength=len(counts)).astype(int)
 
 
 def _densify(points, step):
     import numpy as np
+    if len(points) < 2:
+        return points
     delta = np.linalg.norm(np.diff(points, axis=0), axis=1)
     pieces = np.maximum(1, np.ceil(delta / max(step, 1e-9)).astype(int))
     if pieces.max() == 1:
