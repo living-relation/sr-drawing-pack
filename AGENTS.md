@@ -67,6 +67,7 @@ fails a PR that leaves a top-level `STATE-*.md`. The store path comes from
 ## Git
 - Work on a branch and open a PR. Never commit to `main`. Pulls are fast-forward only. Never force-push.
   Never skip a hook.
+- Standing merge permission (Daniel, 2026-11-25): an agent merges its own PR as soon as CI is green and every hook and gate passed, without asking, then deletes the merged branch (remote and local) and fast-forwards `main`. Never with a red or skipped check, never by bypassing a gate, never a force-push.
 
 ## Scope
 - This repo is only the drawing generator: make rule-following drawings, give the editing features, and
