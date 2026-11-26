@@ -706,3 +706,30 @@ Re-runs with the STEP cache warm: CC-000 Exact Lines 37.2 s, CC-000 Quick Look 3
   cabinet overflowed the sheet; scales below 1:10 (1:15, 1:20, 1:25, 1:50, 1:100 ...) now come from `xq_render.pick_scale`.
 - Known left: centre marks on precomputed views, true ARC entities in the DXF (polylines now), dashes from hidden edges
   under visible ones, rough outlines on cast surfaces, small gaps in the pendant front view, first GPU context up to 6 s.
+
+## Vault linking: proposals and open questions (2026-11-25)
+
+Proposals from the coordinator chat for ADR-056 and ADR-057. None is decided until Daniel answers.
+
+- Two records: the drawing tool writes a hand-over JSON at export (drawing, DXF, STEP fingerprint, children list); sparkCAD makes the master record at upload and keeps its history (ADR-032).
+- Fingerprint: the sha256 of the released STEP. Every drawing and maker file records the fingerprint it was made from; a new model makes old maker files show "stale, remake".
+- Stamp: G-code and .nc allow comment lines (for example `; PRT-0012 rev C fp 3a9f...`); a DXF can carry the same as a text note, so a loose file can be traced.
+- Store "contains" only (from sr-export's bom.json); "where used" is the same list read backwards.
+- Release check: an assembly cannot release until every custom child, all the way down, has its drawing and needed maker files with matching fingerprints. Bought parts are listed but need no vault item.
+- Output checklist at generation with defaults by part type: plate PDF + DXF; machined PDF + .nc upload; printed PDF + G-code upload; assembly PDF + parts list.
+- Editable drawing file: the editor saves its own drawing file (sheets, view positions, dimensions, notes, parts-list placement); PDF and DXF are exports of it. Reopen, edit, export again. If the model changes, views reload from the new STEP and dimensions that cannot follow are flagged.
+- Missing part numbers are caught before anything is saved, in the "Save to vault" check.
+
+Open questions (full text):
+
+- D1 Where part numbers are made (ADR-019 says the vault hands them out; Daniel wants them in Fusion, where the BOM is made, and the title block must match): a) a Fusion "Next number" button takes the next number from the vault counter and writes it into the Fusion part number; drawing title block and BOM read it from Fusion; the vault checks it on upload (rec) · b) engineers type numbers in Fusion by a format rule; the vault only checks format and duplicates on upload · c) the vault assigns at upload and the drawing is re-exported
+- C8 Part number format: a) PRT / SUB / ASY / CBL / WIR-####, plus MFR and CUS (rec) · b) one plain counter for everything
+- C7 Editable drawing file saved with every drawing and stored in the vault: a) yes (rec) · b) no, regenerate each time
+- C9 Ways to pair outside maker files: a) both, in the drawing tool's save window and later in the vault (rec) · b) vault only
+- C4 Linking method: a) fingerprint plus a stamp inside each file (rec) · b) fingerprint in the JSON only
+- C5 When a child part gets a new rev: a) flag the parent "review needed", no automatic rev bump (rec, already the sparkCAD plan) · b) parent always follows the latest child
+- C6 Release check: a) block release until every custom child is complete (rec) · b) warn only
+- C3 First BOM style on the sheet: a) indented (rec) · b) parts-only flat list
+- B9 What to build first: a) more sheets, first angle, detail views, wireframe (rec) · b) section views first · c) sub-assembly visibility and exploded views first
+- C2 Exploded views: a) add exploded positions to the data file the Fusion export writes (rec) · b) export a second STEP of the exploded model · c) skip for now
+- C1 (hidden lines) is withdrawn: ADR-033 already says never.
