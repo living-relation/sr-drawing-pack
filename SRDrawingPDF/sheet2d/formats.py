@@ -29,6 +29,11 @@ FIELDS = (
     'sheet', 'date', 'drawn', 'source', 'tol', 'angle', 'static',
 )
 
+# The label sits in a band at the top of the box. The value stays below that band.
+LABEL_H = 1.8
+LABEL_TOP_GAP = 1.0
+VALUE_GAP = 0.8
+
 
 def standard_size(name):
     row = SIZES.get(name)
@@ -198,6 +203,43 @@ def template_for(document, size):
     return found or default_template(size)
 
 
+def label_rect(w, h, label):
+    """The label's box, origin at the box bottom-left. It hugs the top edge."""
+    from .font import text_width_mm
+    tw = text_width_mm(label or '', LABEL_H, False)
+    top = float(h) - LABEL_TOP_GAP
+    return (1.0, top - LABEL_H, tw, LABEL_H)
+
+
+def value_place(w, h, value, preferred, bold=False):
+    """Center of the value, below the label. None when the box is only a label row.
+
+    The returned rect is (left, bottom, width, height) in the same box space.
+    Its top edge stays VALUE_GAP below the label.
+    """
+    text = (value or '').split('\n')[0]
+    if not text:
+        return None
+    from .font import text_width_mm
+    ceiling = float(h) - LABEL_TOP_GAP - LABEL_H - VALUE_GAP
+    floor = 0.6
+    if ceiling - floor < 1.5:
+        return None
+    size = min(float(preferred), (ceiling - floor) * 0.85)
+    limit = max(4.0, float(w) - 2.0)
+    for _ in range(8):
+        if text_width_mm(text, size, bold) <= limit or size <= 1.5:
+            break
+        size *= 0.85
+    half = size / 2.0
+    cy = (floor + ceiling) / 2.0
+    if cy + half > ceiling:
+        cy = ceiling - half
+    tw = text_width_mm(text, size, bold)
+    rect = (float(w) / 2.0 - tw / 2.0, cy - half, tw, size)
+    return {'size': size, 'x': float(w) / 2.0, 'y': cy, 'rect': rect}
+
+
 def template_svg(template, info=None, sheet_no=1, n_sheets=1):
     """SVG of one title-block format, for the format editor. y grows up in the data and down in the SVG."""
     width, height = float(template['width']), float(template['height'])
@@ -217,14 +259,19 @@ def template_svg(template, info=None, sheet_no=1, n_sheets=1):
             '<rect x="%.3f" y="%.3f" width="%.3f" height="%.3f" fill="#fff" stroke="#222" '
             'stroke-width="0.35" data-box="%s"/>' % (x, top, w, h, _esc(box.get('id') or '')))
         parts.append(
-            '<text x="%.3f" y="%.3f" font-size="3.2" font-family="sans-serif" fill="#666">%s</text>'
-            % (x + 1.2, top + 4.2, _esc(box.get('label') or '')))
+            '<text x="%.3f" y="%.3f" font-size="%.2f" font-family="sans-serif" fill="#666">%s</text>'
+            % (x + 1.0, top + LABEL_TOP_GAP + LABEL_H * 0.92, LABEL_H, _esc(box.get('label') or '')))
         value = field_text(box.get('field'), info, sheet_no, n_sheets, box.get('text') or '')
-        # Short rows (the angle mark) only have room for the label.
-        if value and h >= 10:
+        bold = box.get('field') in ('project', 'title', 'rev', 'size')
+        preferred = 4.6 if box.get('field') == 'title' and len(value) < 38 else 3.2
+        if box.get('field') == 'title' and len(value) >= 38:
+            preferred = 3.6
+        place = None if box.get('field') in ('angle', 'tol') else value_place(w, h, value, preferred, bold)
+        if place:
             parts.append(
-                '<text x="%.3f" y="%.3f" font-size="4.2" font-family="sans-serif" fill="#111" '
-                'text-anchor="middle">%s</text>' % (x + w / 2, top + h / 2 + 1.5, _esc(value.split('\n')[0][:48])))
+                '<text x="%.3f" y="%.3f" font-size="%.2f" font-family="sans-serif" fill="#111" '
+                'text-anchor="middle" dominant-baseline="central">%s</text>'
+                % (x + place['x'], top + (h - place['y']), place['size'], _esc(value.split('\n')[0][:48])))
     parts.append('</svg>')
     return ''.join(parts)
 
@@ -243,7 +290,7 @@ def draw_template(sheet, template, info, sheet_no, n_sheets):
     for box in template.get('boxes') or []:
         x, y, w, h = (float(box[k]) for k in ('x', 'y', 'w', 'h'))
         sheet.pl([(x, y), (x + w, y), (x + w, y + h), (x, y + h)], 'thin', closed=True)
-        sheet.txt(x + 1, y + h - 1, box.get('label') or '', h=1.8, ha='left', va='top')
+        sheet.txt(x + 1, y + h - LABEL_TOP_GAP, box.get('label') or '', h=LABEL_H, ha='left', va='top')
         field = box.get('field')
         if field == 'angle':
             _angle_mark(sheet, x, y, w, h)
@@ -255,10 +302,13 @@ def draw_template(sheet, template, info, sheet_no, n_sheets):
                       h=TOL_H, ha='left', va='top')
             continue
         value = field_text(field, info, sheet_no, n_sheets, box.get('text') or '')
-        size = 4.6 if field == 'title' and len(value) < 38 else 3.2
-        if field == 'title':
-            size = 4.6 if len(value) < 38 else 3.6
-        sheet.txt(x + w / 2, y + h / 2 - 1.2, value, h=size, bold=field in ('project', 'title', 'rev', 'size'))
+        bold = field in ('project', 'title', 'rev', 'size')
+        preferred = 4.6 if field == 'title' and len(value) < 38 else 3.2
+        if field == 'title' and len(value) >= 38:
+            preferred = 3.6
+        place = value_place(w, h, value, preferred, bold)
+        if place:
+            sheet.txt(x + place['x'], y + place['y'], value.split('\n')[0], h=place['size'], bold=bold)
     logo = template.get('logo')
     if logo:
         sheet.items.append(('im', float(logo['x']), float(logo['y']), float(logo['w']), float(logo['h']),
@@ -266,12 +316,16 @@ def draw_template(sheet, template, info, sheet_no, n_sheets):
 
 
 def _angle_mark(sheet, x, y, w, h):
-    cx, cy = x + 11, y + h / 2
-    sheet.pl([(cx - 6, cy - 2.2), (cx - 1.5, cy - 1.2), (cx - 1.5, cy + 1.2), (cx - 6, cy + 2.2)], 'thin', closed=True)
-    sheet.line((cx - 7, cy), (cx - 0.5, cy), 'ctr')
-    sheet.circle((cx + 4, cy), min(2.2, h / 3), 'thin')
-    sheet.circle((cx + 4, cy), min(1.0, h / 6), 'thin')
-    sheet.txt(x + w - 8, cy, '3RD ANGLE', h=1.8, ha='right')
+    """The projection symbol sits under the label, in the value area."""
+    ceiling = h - LABEL_TOP_GAP - LABEL_H - 0.4
+    cy = y + max(1.6, ceiling / 2.0)
+    reach = max(1.0, ceiling / 2.0 - 0.2)
+    sheet.pl([(x + 5, cy - reach * 0.7), (x + 9.5, cy - reach * 0.4),
+              (x + 9.5, cy + reach * 0.4), (x + 5, cy + reach * 0.7)], 'thin', closed=True)
+    sheet.line((x + 4, cy), (x + 10.5, cy), 'ctr')
+    sheet.circle((x + 15, cy), min(2.2, reach), 'thin')
+    sheet.circle((x + 15, cy), min(1.0, reach / 2.0), 'thin')
+    sheet.txt(x + w - 1.5, cy, '3RD ANGLE', h=min(1.8, reach), ha='right')
 
 
 def logo_href(logo):

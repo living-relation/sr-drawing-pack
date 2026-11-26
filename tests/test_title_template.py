@@ -4,14 +4,42 @@ import sys
 
 from sheet2d.commands import execute
 from sheet2d.formats import (
-    SIZES, add_box, attach_template, default_template, field_text, load_template,
+    SIZES, add_box, attach_template, default_template, field_text, label_rect, load_template,
     move_box, remove_box, resize_box, save_template, set_logo, template_for, template_svg,
+    value_place,
 )
 from sheet2d.model import DrawingDocument, size_of
 from sheet2d.render import render_sheets
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'dev'))
 from title_editor import Editor  # noqa: E402
+
+
+def _overlap(a, b):
+    ax, ay, aw, ah = a
+    bx, by, bw, bh = b
+    return ax < bx + bw and bx < ax + aw and ay < by + bh and by < ay + ah
+
+
+def test_values_sit_clear_of_labels():
+    info = {
+        'project': 'Spark Robotic / Rig 4', 'title': 'BRACKET', 'pn': 'SR-14',
+        'rev': 'A', 'material': 'AL 6061', 'scale': '1:2', 'units': 'mm',
+        'size': 'B', 'date': '2026-11-26', 'drawn': 'DL', 'source': 'FUSION',
+    }
+    for size in SIZES:
+        tpl = default_template(size)
+        for box in tpl['boxes']:
+            if box['field'] in ('angle', 'tol'):
+                continue
+            value = field_text(box['field'], info, 1, 1, box.get('text') or '')
+            place = value_place(box['w'], box['h'], value, 4.6 if box['field'] == 'title' else 3.2, False)
+            assert place is not None, box['id']
+            assert not _overlap(label_rect(box['w'], box['h'], box['label']), place['rect']), box['id']
+    sheet = next(b for b in default_template('B')['boxes'] if b['id'] == 'sheet')
+    place = value_place(sheet['w'], sheet['h'], '1 OF 1', 3.2, False)
+    label = label_rect(sheet['w'], sheet['h'], 'SHEET')
+    assert place['rect'][1] + place['rect'][3] <= label[1]
 
 
 def test_sizes_include_ansi_and_metric():
