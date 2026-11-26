@@ -84,7 +84,8 @@ def load_shape(step):
     from OCP.BinTools import BinTools
     from OCP.TopoDS import TopoDS_Shape
     t0 = time.perf_counter()
-    cache = os.path.join(cache_dir(), _hash(step) + '.brep')
+    # r2: the cached shape keeps each part's assembly position. Older caches do not.
+    cache = os.path.join(cache_dir(), _hash(step) + '.r2.brep')
     names_path = cache + '.names.json'
     if os.path.isfile(cache):
         shape = TopoDS_Shape()
@@ -124,7 +125,12 @@ def _read_step(path):
 
 
 def _read_xcaf(path):
-    """Solids in explorer order, each with the product name from the file."""
+    """Solids in explorer order, each with the product name and its real position.
+
+    A reference (an instance) carries a location. Nested assemblies multiply
+    those locations. The shape that is stored on the part is only the prototype,
+    so it has to be moved by the whole chain.
+    """
     from OCP.BRep import BRep_Builder
     from OCP.IFSelect import IFSelect_ReturnStatus
     from OCP.STEPCAFControl import STEPCAFControl_Reader
@@ -134,6 +140,7 @@ def _read_xcaf(path):
     from OCP.TDocStd import TDocStd_Document
     from OCP.TopAbs import TopAbs_SOLID
     from OCP.TopExp import TopExp_Explorer
+    from OCP.TopLoc import TopLoc_Location
     from OCP.TopoDS import TopoDS_Compound
     from OCP.XCAFApp import XCAFApp_Application
     from OCP.XCAFDoc import XCAFDoc_DocumentTool, XCAFDoc_ShapeTool
@@ -166,24 +173,29 @@ def _read_xcaf(path):
             names.append(name or '')
             explorer.Next()
 
-    def walk(label, inherited):
+    def walk(label, parent, inherited):
+        name = label_name(label) or inherited
         if XCAFDoc_ShapeTool.IsReference_s(label):
             referred = TDF_Label()
             if XCAFDoc_ShapeTool.GetReferredShape_s(label, referred):
-                walk(referred, label_name(label) or inherited)
+                inst = XCAFDoc_ShapeTool.GetLocation_s(label)
+                walk(referred, parent.Multiplied(inst), name)
             return
-        name = label_name(label) or inherited
         kids = Sequence_TDF_Label()
         if XCAFDoc_ShapeTool.GetComponents_s(label, kids, False) and kids.Length():
             for index in range(1, kids.Length() + 1):
-                walk(kids.Value(index), name)
+                walk(kids.Value(index), parent, name)
             return
-        add_shape(tool.GetShape_s(label), name)
+        shape = tool.GetShape_s(label)
+        if shape is None or shape.IsNull():
+            return
+        add_shape(shape.Located(parent), name)
 
     free = Sequence_TDF_Label()
     tool.GetFreeShapes(free)
+    origin = TopLoc_Location()
     for index in range(1, free.Length() + 1):
-        walk(free.Value(index), '')
+        walk(free.Value(index), origin, '')
     if not solids:
         return None, []
     builder = BRep_Builder()
