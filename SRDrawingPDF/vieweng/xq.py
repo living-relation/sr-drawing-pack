@@ -114,7 +114,15 @@ def _render(step, names, workers=None, mode='exact'):
     V, F, CN = _mesh_arrays(shape, defl)
     mesh_s = time.perf_counter() - t_mesh
     t_edge = time.perf_counter()
-    points, counts, tangent = _edges(shape, defl, step_len, workers)
+    plain, hardware = _hardware_split(shape)
+    if hardware:
+        if plain is None:
+            points, counts, tangent = _empty_edges()
+        else:
+            points, counts, tangent = _edges(plain, defl, step_len, workers)
+        hardware = [(solid, _edges(solid, defl, step_len, 1), _solid_triangles(solid)) for solid in hardware]
+    else:
+        points, counts, tangent = _edges(shape, defl, step_len, workers)
     edge_s = time.perf_counter() - t_edge
     depth = _Depth(V, F)
     views = {}
@@ -129,7 +137,9 @@ def _render(step, names, workers=None, mode='exact'):
         ext_r = float(np.ptp(corners @ r))
         ext_u = float(np.ptp(corners @ u))
         zb, to_win, dz, px = depth.render(c, r, u, ext_r, ext_u, res)
-        lines = _view_lines(V, F, CN, points, counts, tangent, c, r, u, zb, to_win, dz, px, defl, name, fit)
+        use_points, use_counts, use_tangent = _with_hardware_outline(
+            points, counts, tangent, hardware, r, u)
+        lines = _view_lines(V, F, CN, use_points, use_counts, use_tangent, c, r, u, zb, to_win, dz, px, defl, name, fit)
         us = [p[0] for line in lines for p in _pts_of(line)]
         vs = [p[1] for line in lines for p in _pts_of(line)]
         if not us:
@@ -304,6 +314,232 @@ def _corner_normals(faces, raw):
     slot = np.tile(np.arange(3), len(faces))[order]
     cn[tri, slot] = out
     return cn
+
+
+# A turned part this small is hardware: screw, nut, washer, standoff, insert.
+# Only its outline is drawn. A socket, chamfer ring, or cone line inside the
+# outline is left out. A larger part is drawn in full.
+FASTENER_R_MM = 30.0
+FASTENER_L_MM = 200.0
+
+
+def _empty_edges():
+    import numpy as np
+    return np.zeros((0, 3)), np.zeros(0, int), np.zeros(0, bool)
+
+
+def _solid_list(shape):
+    from OCP.TopAbs import TopAbs_SOLID
+    from OCP.TopExp import TopExp_Explorer
+    found = []
+    explorer = TopExp_Explorer(shape, TopAbs_SOLID)
+    while explorer.More():
+        found.append(explorer.Current())
+        explorer.Next()
+    return found
+
+
+def _hardware_split(shape):
+    """(other solids as one shape or None, fastener solids)."""
+    solids = _solid_list(shape)
+    if not solids:
+        return shape, []
+    hard = []
+    rest = []
+    for solid in solids:
+        if _is_fastener(solid):
+            hard.append(solid)
+        else:
+            rest.append(solid)
+    if not hard:
+        return shape, []
+    if not rest:
+        return None, hard
+    return _compound(rest), hard
+
+
+def _compound(solids):
+    from OCP.BRep import BRep_Builder
+    from OCP.TopoDS import TopoDS_Compound
+    builder = BRep_Builder()
+    compound = TopoDS_Compound()
+    builder.MakeCompound(compound)
+    for solid in solids:
+        builder.Add(compound, solid)
+    return compound
+
+
+def _is_fastener(solid):
+    """A small part whose round faces share one axis. A plate with a hole is not one."""
+    import numpy as np
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.GeomAbs import GeomAbs_Cone, GeomAbs_Cylinder
+    from OCP.TopAbs import TopAbs_FACE
+    from OCP.TopExp import TopExp_Explorer
+    from OCP.TopoDS import TopoDS
+    axes = []
+    explorer = TopExp_Explorer(solid, TopAbs_FACE)
+    while explorer.More():
+        face = _cast(TopoDS, 'Face')(explorer.Current())
+        try:
+            surface = BRepAdaptor_Surface(face)
+            kind = surface.GetType()
+            if kind == GeomAbs_Cylinder:
+                axis = surface.Cylinder().Axis()
+            elif kind == GeomAbs_Cone:
+                axis = surface.Cone().Axis()
+            else:
+                axis = None
+            if axis is not None:
+                direction = np.array([axis.Direction().X(), axis.Direction().Y(), axis.Direction().Z()])
+                direction = direction / (np.linalg.norm(direction) + 1e-15)
+                if direction[2] < 0 or (abs(direction[2]) < 1e-9 and direction[0] < 0):
+                    direction = -direction
+                origin = np.array([axis.Location().X(), axis.Location().Y(), axis.Location().Z()])
+                axes.append((origin, direction))
+        except Exception:
+            pass
+        explorer.Next()
+    if not axes:
+        return False
+    base = axes[0][1]
+    if any(abs(float(np.dot(base, direction))) < 0.98 for _origin, direction in axes):
+        return False
+    origin = axes[0][0]
+    lo, hi = _bbox(solid)
+    rel = _corners(lo, hi) - origin
+    along = rel @ base
+    radial = np.linalg.norm(rel - along[:, None] * base, axis=1)
+    return float(radial.max()) <= FASTENER_R_MM and float(along.max() - along.min()) <= FASTENER_L_MM
+
+
+def _solid_triangles(solid):
+    """Triangles written onto the solid when the whole file was meshed."""
+    import numpy as np
+    from OCP.BRep import BRep_Tool
+    from OCP.TopAbs import TopAbs_FACE
+    from OCP.TopExp import TopExp_Explorer
+    from OCP.TopLoc import TopLoc_Location
+    from OCP.TopoDS import TopoDS
+    tris = []
+    explorer = TopExp_Explorer(solid, TopAbs_FACE)
+    while explorer.More():
+        face = _cast(TopoDS, 'Face')(explorer.Current())
+        loc = TopLoc_Location()
+        tri = BRep_Tool.Triangulation_s(face, loc)
+        if tri is not None and tri.NbTriangles() > 0:
+            tr = loc.Transformation()
+            nodes = np.zeros((tri.NbNodes(), 3))
+            for i in range(1, tri.NbNodes() + 1):
+                point = tri.Node(i).Transformed(tr)
+                nodes[i - 1] = (point.X(), point.Y(), point.Z())
+            for i in range(1, tri.NbTriangles() + 1):
+                a, b, c = tri.Triangle(i).Get()
+                tris.append(nodes[[a - 1, b - 1, c - 1]])
+        explorer.Next()
+    if not tris:
+        return np.zeros((0, 3, 3))
+    return np.stack(tris)
+
+
+def _with_hardware_outline(points, counts, tangent, hardware, right, up):
+    """Add fastener edges, minus socket, chamfer, and cone lines inside the outline."""
+    import numpy as np
+    chunks = [(points, counts, tangent)]
+    for _solid, edges, tris in hardware:
+        hp, hc, ht = edges
+        if len(hc) == 0 or len(tris) == 0:
+            chunks.append((hp, hc, ht))
+            continue
+        flat = np.c_[hp @ right, hp @ up]
+        tri2 = np.stack([tris @ right, tris @ up], axis=-1)
+        keep = _outline_edges(flat, hc, tri2)
+        if not keep.any():
+            continue
+        chunks.append((_take_edges(hp, hc, keep), hc[keep], ht[keep]))
+    chunks = [c for c in chunks if len(c[1])]
+    if not chunks:
+        return _empty_edges()
+    return (np.concatenate([c[0] for c in chunks]),
+            np.concatenate([c[1] for c in chunks]).astype(int),
+            np.concatenate([c[2] for c in chunks]).astype(bool))
+
+
+def _take_edges(points, counts, keep):
+    import numpy as np
+    spans = np.cumsum(np.r_[0, counts])
+    return np.concatenate([points[spans[i]:spans[i + 1]] for i in np.nonzero(keep)[0]])
+
+
+def _outline_edges(flat, counts, tri2):
+    """True for edges that sit on the part outline. An inside edge has the part on both sides."""
+    import numpy as np
+    mask = _fill_mask(tri2)
+    if mask is None:
+        return np.ones(len(counts), dtype=bool)
+    origin, cell, grid = mask
+    spans = np.cumsum(np.r_[0, counts])
+    keep = np.ones(len(counts), dtype=bool)
+    n = grid.shape[0]
+    probe = 1.5 * cell
+
+    def inside(point):
+        ix = int((point[0] - origin[0]) / cell)
+        iy = int((point[1] - origin[1]) / cell)
+        return 0 <= ix < n and 0 <= iy < n and grid[iy, ix] == 1
+
+    for i, (a, b) in enumerate(zip(spans[:-1], spans[1:])):
+        if b - a < 2:
+            continue
+        # A closed rim starts and ends at the same point, so use a short step on the run.
+        mid_i = (a + b) // 2
+        step_i = min(b - 1, mid_i + max(1, (b - a) // 16))
+        chord = flat[step_i] - flat[mid_i]
+        length = float(np.hypot(chord[0], chord[1]))
+        if length < 1e-9:
+            continue
+        normal = np.array([-chord[1], chord[0]]) / length * probe
+        mid = flat[(a + b) // 2]
+        if inside(mid + normal) and inside(mid - normal):
+            keep[i] = False
+    return keep
+
+
+def _fill_mask(tri2, n=64):
+    import numpy as np
+    if len(tri2) == 0:
+        return None
+    flat = tri2.reshape(-1, 2)
+    lo = flat.min(0)
+    hi = flat.max(0)
+    span = float(max(hi[0] - lo[0], hi[1] - lo[1], 1e-6))
+    cell = span / n
+    grid = np.zeros((n, n), np.uint8)
+    for tri in tri2:
+        tlo = tri.min(0)
+        thi = tri.max(0)
+        x0 = max(0, int((tlo[0] - lo[0]) / cell))
+        x1 = min(n - 1, int((thi[0] - lo[0]) / cell))
+        y0 = max(0, int((tlo[1] - lo[1]) / cell))
+        y1 = min(n - 1, int((thi[1] - lo[1]) / cell))
+        if x1 < x0 or y1 < y0:
+            continue
+        xs = lo[0] + (np.arange(x0, x1 + 1) + 0.5) * cell
+        ys = lo[1] + (np.arange(y0, y1 + 1) + 0.5) * cell
+        xx, yy = np.meshgrid(xs, ys)
+        p = np.stack([xx, yy], axis=-1).reshape(-1, 2)
+        v0 = tri[2] - tri[0]
+        v1 = tri[1] - tri[0]
+        den = v0[0] * v1[1] - v1[0] * v0[1]
+        if abs(den) < 1e-12:
+            continue
+        v2 = p - tri[0]
+        alpha = (v2[:, 0] * v1[1] - v1[0] * v2[:, 1]) / den
+        beta = (v0[0] * v2[:, 1] - v2[:, 0] * v0[1]) / den
+        inside = (alpha >= -1e-6) & (beta >= -1e-6) & (alpha + beta <= 1 + 1e-6)
+        hit = inside.reshape(yy.shape)
+        grid[y0:y1 + 1, x0:x1 + 1][hit] = 1
+    return lo, cell, grid
 
 
 def _edges(shape, defl, step, workers):
