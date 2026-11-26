@@ -14,6 +14,10 @@ from sheet2d.engines.curves import bridge_gaps, fit_chain
 PAPER_PX = 0.02
 PAPER_DEFL = 0.02
 SMOOTH_DEG = 30.0
+# One depth picture never asks the graphics driver for more than this on a side.
+# A larger view is drawn in tiles and stitched. 16384 in one buffer crashed a driver.
+TILE = 4096
+MAX_RES = 8192
 
 
 class XqEngine(object):
@@ -94,13 +98,15 @@ def _render(step, names, workers=None, mode='exact'):
     from sheet2d.project import _basis
     t0 = time.perf_counter()
     shape, read_s, from_step = load_shape(step)
+    # A loose sheet face is not part of a solid. It must not stretch the view.
+    shape = _solids(shape)
     lo, hi = _bbox(shape)
     # Depth pixels follow the sheet scale the mesh views would pick, about 0.02 mm on paper.
     scale = _rough_scale(lo, hi, names)
     defl = PAPER_DEFL / max(scale, 1e-6)
     size = float(np.linalg.norm(hi - lo))
     fit = mode != 'quick'
-    res = int(min(8192, max(512, (size * scale) / PAPER_PX)))
+    res = int(min(MAX_RES, max(512, (size * scale) / PAPER_PX)))
     if mode == 'quick':
         res = min(res, 2048)
     step_len = 0.7 * size / res
@@ -160,6 +166,42 @@ def _pts_of(line):
         c, rx, ry = line['c'], line['rx'], line['ry']
         return [(c[0] - rx, c[1] - ry), (c[0] + rx, c[1] + ry)]
     return []
+
+
+def _buffer_size(ext_r, ext_u, res):
+    """Pixel size of the depth picture. The long side stays within MAX_RES."""
+    longest = max(ext_r, ext_u, 1e-6)
+    width = max(32, int(res * min(1.0, ext_r / longest)))
+    height = max(32, int(res * min(1.0, ext_u / longest)))
+    long_side = max(width, height)
+    if long_side > MAX_RES:
+        shrink = MAX_RES / float(long_side)
+        width = max(32, int(width * shrink))
+        height = max(32, int(height * shrink))
+    return width, height
+
+
+def _solids(shape):
+    """The solids in a file. Loose faces are left out when any solid exists."""
+    from OCP.BRep import BRep_Builder
+    from OCP.TopAbs import TopAbs_SOLID
+    from OCP.TopExp import TopExp_Explorer
+    from OCP.TopoDS import TopoDS_Compound
+    found = []
+    explorer = TopExp_Explorer(shape, TopAbs_SOLID)
+    while explorer.More():
+        found.append(explorer.Current())
+        explorer.Next()
+    if not found:
+        return shape
+    if len(found) == 1 and shape.ShapeType() == TopAbs_SOLID:
+        return shape
+    builder = BRep_Builder()
+    compound = TopoDS_Compound()
+    builder.MakeCompound(compound)
+    for solid in found:
+        builder.Add(compound, solid)
+    return compound
 
 
 def _bbox(shape):
@@ -412,23 +454,57 @@ class _Depth(object):
 
     def render(self, toward, right, up, ext_r, ext_u, res):
         import numpy as np
+        width, height = _buffer_size(ext_r, ext_u, res)
+        toward = np.array(toward, float)
+        right = np.array(right, float)
+        up = np.array(up, float)
+        if width <= TILE and height <= TILE:
+            image = self._tile(toward, right, up, ext_r, ext_u, width, height, 0, 0, width, height)
+        else:
+            image = np.ones((height, width), np.float32)
+            for y0 in range(0, height, TILE):
+                for x0 in range(0, width, TILE):
+                    tw = min(TILE, width - x0)
+                    th = min(TILE, height - y0)
+                    image[y0:y0 + th, x0:x0 + tw] = self._tile(
+                        toward, right, up, ext_r, ext_u, width, height, x0, y0, tw, th)
+        return image, *self._mapper(toward, right, up, ext_r, ext_u, width, height)
+
+    def _tile(self, toward, right, up, ext_r, ext_u, width, height, x0, y0, tw, th):
+        """One depth tile. x0, y0 are pixels from the bottom left of the full view."""
+        import numpy as np
         vtk = self.vtk
-        longest = max(ext_r, ext_u, 1e-6)
-        width = max(32, int(res * min(1.0, ext_r / longest)))
-        height = max(32, int(res * min(1.0, ext_u / longest)))
-        self.win.SetSize(width, height)
+        scale = max(ext_u, ext_r * height / max(width, 1)) / 2 * 1.04
+        half_u = scale
+        half_r = scale * width / max(height, 1)
+        mid_r = -half_r + (x0 + tw / 2.0) / width * (2 * half_r)
+        mid_u = -half_u + (y0 + th / 2.0) / height * (2 * half_u)
+        focal = self.center + right * mid_r + up * mid_u
+        self.win.SetSize(int(tw), int(th))
         cam = self.ren.GetActiveCamera()
+        cam.ParallelProjectionOn()
+        cam.SetFocalPoint(*focal)
+        cam.SetPosition(*(focal + toward * 4 * self.radius))
+        cam.SetViewUp(*up)
+        cam.SetParallelScale(scale * th / max(height, 1))
+        cam.SetClippingRange(2 * self.radius, 6 * self.radius)
+        self.win.Render()
+        zbuf = vtk.vtkFloatArray()
+        self.win.GetZbufferData(0, 0, int(tw) - 1, int(th) - 1, zbuf)
+        from vtk.util import numpy_support as ns
+        return np.array(ns.vtk_to_numpy(zbuf), copy=True).reshape(int(th), int(tw))
+
+    def _mapper(self, toward, right, up, ext_r, ext_u, width, height):
+        import numpy as np
+        vtk = self.vtk
+        scale = max(ext_u, ext_r * height / max(width, 1)) / 2 * 1.04
+        cam = vtk.vtkCamera()
         cam.ParallelProjectionOn()
         cam.SetFocalPoint(*self.center)
         cam.SetPosition(*(self.center + toward * 4 * self.radius))
         cam.SetViewUp(*up)
-        cam.SetParallelScale(max(ext_u, ext_r * height / width) / 2 * 1.04)
+        cam.SetParallelScale(scale)
         cam.SetClippingRange(2 * self.radius, 6 * self.radius)
-        self.win.Render()
-        zbuf = vtk.vtkFloatArray()
-        self.win.GetZbufferData(0, 0, width - 1, height - 1, zbuf)
-        from vtk.util import numpy_support as ns
-        image = ns.vtk_to_numpy(zbuf).reshape(height, width).copy()
         matrix = cam.GetCompositeProjectionTransformMatrix(width / float(height), -1, 1)
         M = np.array([[matrix.GetElement(i, j) for j in range(4)] for i in range(4)])
 
@@ -440,8 +516,8 @@ class _Depth(object):
                     (ndc[:, 2] + 1) / 2)
 
         dz = 1.0 / (4 * self.radius)
-        px = 2 * cam.GetParallelScale() / height
-        return image, to_win, dz, px
+        px = 2 * scale / height
+        return to_win, dz, px
 
 
 def _visible(points, image, to_win, tol):

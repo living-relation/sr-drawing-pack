@@ -25,14 +25,19 @@ def run_engine(engine, step, names):
     ok, why = engine.available()
     if not ok:
         return {'available': False, 'reason': why}, None, None
+    if not step or not os.path.isfile(step):
+        return {'available': False, 'reason': 'no STEP file'}, None, None
     t0 = time.perf_counter()
-    views, timing = engine.project_views(names, step=step, mode='exact')
-    timing = dict(timing)
-    timing['wall_s'] = round(time.perf_counter() - t0, 3)
-    t1 = time.perf_counter()
-    _views2, cached = engine.project_views(names, step=step, mode='exact')
-    cached = dict(cached)
-    cached['wall_s'] = round(time.perf_counter() - t1, 3)
+    try:
+        views, timing = engine.project_views(names, step=step, mode='exact')
+        timing = dict(timing)
+        timing['wall_s'] = round(time.perf_counter() - t0, 3)
+        t1 = time.perf_counter()
+        _views2, cached = engine.project_views(names, step=step, mode='exact')
+        cached = dict(cached)
+        cached['wall_s'] = round(time.perf_counter() - t1, 3)
+    except Exception as exc:
+        return {'available': False, 'reason': str(exc)}, None, None
     return {'available': True, 'cold': _public(timing), 'cached': _public(cached)}, views, cached
 
 
