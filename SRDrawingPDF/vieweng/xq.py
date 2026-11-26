@@ -7,7 +7,9 @@ Visible edges only: tangent edges are thin solid lines, never dashes. Short
 breaks in a visible run are closed. Trimetric round edges that are ellipses
 are fitted as ellipses. A STEP file is read once and cached by its hash.
 """
+import json
 import os
+import re
 
 from sheet2d.engines.curves import analytic_curve, bridge_gaps, fit_chain
 
@@ -72,25 +74,123 @@ def _hash(path):
 
 
 def load_shape(step):
-    """(shape, seconds, from_step). The second call reads the cached brep."""
+    """(shape, seconds, from_step, names). The second call reads the cached brep.
+
+    names is one string per solid, in the same order. The brep cache does not
+    keep names, so they are stored beside it. An old cache has no names.
+    """
     import time
     from OCP.BinTools import BinTools
     from OCP.TopoDS import TopoDS_Shape
     t0 = time.perf_counter()
     cache = os.path.join(cache_dir(), _hash(step) + '.brep')
+    names_path = cache + '.names.json'
     if os.path.isfile(cache):
         shape = TopoDS_Shape()
         BinTools.Read_s(shape, cache)
-        return shape, time.perf_counter() - t0, False
-    from OCP.STEPControl import STEPControl_Reader
-    reader = STEPControl_Reader()
-    reader.ReadFile(step)
-    reader.TransferRoots()
-    shape = reader.OneShape()
+        names = []
+        if os.path.isfile(names_path):
+            try:
+                with open(names_path, encoding='utf-8') as handle:
+                    names = json.load(handle)
+            except (OSError, ValueError):
+                names = []
+        return shape, time.perf_counter() - t0, False, names
+    shape, names = _read_step(step)
     tmp = cache + '.%d.tmp' % os.getpid()
     BinTools.Write_s(shape, tmp)
     os.replace(tmp, cache)
-    return shape, time.perf_counter() - t0, True
+    names_tmp = names_path + '.%d.tmp' % os.getpid()
+    with open(names_tmp, 'w', encoding='utf-8') as handle:
+        json.dump(list(names), handle)
+    os.replace(names_tmp, names_path)
+    return shape, time.perf_counter() - t0, True, names
+
+
+def _read_step(path):
+    """(shape, names). Names are read from the STEP file. A plain brep has none."""
+    try:
+        shape, names = _read_xcaf(path)
+        if shape is not None:
+            return shape, names
+    except Exception:
+        pass
+    from OCP.STEPControl import STEPControl_Reader
+    reader = STEPControl_Reader()
+    reader.ReadFile(path)
+    reader.TransferRoots()
+    return reader.OneShape(), []
+
+
+def _read_xcaf(path):
+    """Solids in explorer order, each with the product name from the file."""
+    from OCP.BRep import BRep_Builder
+    from OCP.IFSelect import IFSelect_ReturnStatus
+    from OCP.STEPCAFControl import STEPCAFControl_Reader
+    from OCP.TCollection import TCollection_ExtendedString
+    from OCP.TDF import TDF_Label
+    from OCP.TDataStd import TDataStd_Name
+    from OCP.TDocStd import TDocStd_Document
+    from OCP.TopAbs import TopAbs_SOLID
+    from OCP.TopExp import TopExp_Explorer
+    from OCP.TopoDS import TopoDS_Compound
+    from OCP.XCAFApp import XCAFApp_Application
+    from OCP.XCAFDoc import XCAFDoc_DocumentTool, XCAFDoc_ShapeTool
+    from OCP.collections import Sequence_TDF_Label
+
+    app = XCAFApp_Application.GetApplication_s()
+    doc = TDocStd_Document(TCollection_ExtendedString('XmlXCAF'))
+    app.NewDocument(TCollection_ExtendedString('MDTV-XCAF'), doc)
+    reader = STEPCAFControl_Reader()
+    reader.SetNameMode(True)
+    if reader.ReadFile(path) != IFSelect_ReturnStatus.IFSelect_RetDone:
+        return None, []
+    reader.Transfer(doc)
+    tool = XCAFDoc_DocumentTool.ShapeTool_s(doc.Main())
+    solids = []
+    names = []
+
+    def label_name(label):
+        attr = TDataStd_Name()
+        if label.FindAttribute(TDataStd_Name.GetID_s(), attr):
+            return attr.Get().ToExtString()
+        return ''
+
+    def add_shape(shape, name):
+        if shape is None or shape.IsNull():
+            return
+        explorer = TopExp_Explorer(shape, TopAbs_SOLID)
+        while explorer.More():
+            solids.append(explorer.Current())
+            names.append(name or '')
+            explorer.Next()
+
+    def walk(label, inherited):
+        if XCAFDoc_ShapeTool.IsReference_s(label):
+            referred = TDF_Label()
+            if XCAFDoc_ShapeTool.GetReferredShape_s(label, referred):
+                walk(referred, label_name(label) or inherited)
+            return
+        name = label_name(label) or inherited
+        kids = Sequence_TDF_Label()
+        if XCAFDoc_ShapeTool.GetComponents_s(label, kids, False) and kids.Length():
+            for index in range(1, kids.Length() + 1):
+                walk(kids.Value(index), name)
+            return
+        add_shape(tool.GetShape_s(label), name)
+
+    free = Sequence_TDF_Label()
+    tool.GetFreeShapes(free)
+    for index in range(1, free.Length() + 1):
+        walk(free.Value(index), '')
+    if not solids:
+        return None, []
+    builder = BRep_Builder()
+    compound = TopoDS_Compound()
+    builder.MakeCompound(compound)
+    for solid in solids:
+        builder.Add(compound, solid)
+    return compound, names
 
 
 def _show_tangents(name, tangents):
@@ -109,7 +209,7 @@ def _render(step, names, workers=None, mode='exact', tangents=True):
     import numpy as np
     from sheet2d.project import _basis
     t0 = time.perf_counter()
-    shape, read_s, from_step = load_shape(step)
+    shape, read_s, from_step, part_names = load_shape(step)
     # A loose sheet face is not part of a solid. It must not stretch the view.
     shape = _solids(shape)
     lo, hi = _bbox(shape)
@@ -123,12 +223,12 @@ def _render(step, names, workers=None, mode='exact', tangents=True):
         res = min(res, 2048)
     step_len = 0.7 * size / res
     t_mesh = time.perf_counter()
-    repeated = _repeated_build(shape, defl, step_len)
+    repeated = _repeated_build(shape, defl, step_len, part_names)
     if repeated is None:
         V, F, CN = _mesh_arrays(shape, defl)
         mesh_s = time.perf_counter() - t_mesh
         t_edge = time.perf_counter()
-        plain, hardware = _hardware_split(shape)
+        plain, hardware = _hardware_split(shape, part_names)
         if hardware:
             if plain is None:
                 points, counts, tangent, analytic = _empty_edges()
@@ -314,7 +414,7 @@ def _mesh_arrays(shape, defl):
     return verts, faces, _corner_normals(faces, raw)
 
 
-def _repeated_build(shape, defl, step):
+def _repeated_build(shape, defl, step, part_names=None):
     """Mesh and sample each repeated solid once, then place the copies.
 
     Returns None when almost every solid is unique, so that path stays the
@@ -326,13 +426,17 @@ def _repeated_build(shape, defl, step):
         return None
     groups = {}
     order = []
-    for solid in solids:
-        key = _repeat_key(solid)
+    part_names = list(part_names or [])
+    if len(part_names) < len(solids):
+        part_names += [''] * (len(solids) - len(part_names))
+    for index, solid in enumerate(solids):
+        # Same shape with a different kind of name is not the same part.
+        key = (_repeat_key(solid), name_is_fastener(part_names[index]))
         if key not in groups:
             groups[key] = []
             order.append(key)
         lo, hi = _bbox(solid)
-        groups[key].append((solid, (lo + hi) * 0.5))
+        groups[key].append((solid, (lo + hi) * 0.5, part_names[index]))
     if len(order) == len(solids):
         return None
     import time
@@ -342,15 +446,15 @@ def _repeated_build(shape, defl, step):
     vcount = 0
     mesh_s = edge_s = 0.0
     for key in order:
-        proto, origin = groups[key][0]
+        proto, origin, proto_name = groups[key][0]
         t_mesh = time.perf_counter()
         verts, faces, cn = _mesh_arrays(proto, defl)
         mesh_s += time.perf_counter() - t_mesh
         t_edge = time.perf_counter()
         edges = _edges(proto, defl, step, 1)
         edge_s += time.perf_counter() - t_edge
-        fastener = _is_fastener(proto)
-        for _solid, center in groups[key]:
+        fastener = _is_fastener(proto, proto_name)
+        for _solid, center, _name in groups[key]:
             delta = center - origin
             moved = verts + delta
             verts_all.append(moved)
@@ -441,11 +545,23 @@ def _corner_normals(faces, raw):
     return cn
 
 
-# A turned part this small is hardware: screw, nut, washer, standoff, insert.
-# Only its outline is drawn. A socket, chamfer ring, or cone line inside the
-# outline is left out. A larger part is drawn in full.
+# A screw, nut, washer, standoff, or the other SR Fastener names, and only when
+# the part is small and turned. A connector, handle, or rail is not hardware
+# even when it is round. Only a recess, chamfer, or cone inside the head is
+# left out. The outer silhouette stays.
 FASTENER_R_MM = 30.0
 FASTENER_L_MM = 200.0
+_FASTENER_NAME = re.compile(
+    r'\b(screws?|bolts?|nuts?|washers?|standoffs?|inserts?|shcs|bhcs|fhcs|rivets?|fasteners?)\b',
+    re.I)
+
+
+def name_is_fastener(name):
+    """True for a real fastener name. A connector, handle, or rail is not one."""
+    text = (name or '').lower().replace('stand-off', 'standoff').replace('stand off', 'standoff')
+    if not text:
+        return False
+    return _FASTENER_NAME.search(text) is not None
 
 
 def _empty_edges():
@@ -464,15 +580,18 @@ def _solid_list(shape):
     return found
 
 
-def _hardware_split(shape):
+def _hardware_split(shape, part_names=None):
     """(other solids as one shape or None, fastener solids)."""
     solids = _solid_list(shape)
     if not solids:
         return shape, []
+    part_names = list(part_names or [])
+    if len(part_names) < len(solids):
+        part_names += [''] * (len(solids) - len(part_names))
     hard = []
     rest = []
-    for solid in solids:
-        if _is_fastener(solid):
+    for solid, name in zip(solids, part_names):
+        if _is_fastener(solid, name):
             hard.append(solid)
         else:
             rest.append(solid)
@@ -494,8 +613,10 @@ def _compound(solids):
     return compound
 
 
-def _is_fastener(solid):
-    """A small part whose round faces share one axis. A plate with a hole is not one."""
+def _is_fastener(solid, name=''):
+    """A named fastener that is small and turned. No name means it is not one."""
+    if not name_is_fastener(name):
+        return False
     import numpy as np
     from OCP.BRepAdaptor import BRepAdaptor_Surface
     from OCP.GeomAbs import GeomAbs_Cone, GeomAbs_Cylinder
@@ -578,7 +699,7 @@ def _with_hardware_outline(points, counts, tangent, analytic, hardware, right, u
             continue
         flat = np.c_[hp @ right, hp @ up]
         tri2 = np.stack([tris @ right, tris @ up], axis=-1)
-        keep = _outline_edges(flat, hc, tri2)
+        keep = _outline_edges(flat, hc, tri2, list(ha))
         if not keep.any():
             continue
         kept = np.nonzero(keep)[0]
@@ -601,7 +722,7 @@ def _take_edges(points, counts, keep):
     return np.concatenate([points[spans[i]:spans[i + 1]] for i in np.nonzero(keep)[0]])
 
 
-def _outline_edges(flat, counts, tri2):
+def _outline_edges(flat, counts, tri2, analytic=None):
     """True for edges that sit on the part outline. An inside edge has the part on both sides."""
     import numpy as np
     mask = _fill_mask(tri2)
@@ -632,10 +753,33 @@ def _outline_edges(flat, counts, tri2):
         mid = flat[(a + b) // 2]
         if inside(mid + normal) and inside(mid - normal):
             keep[i] = False
+    if analytic:
+        _keep_outer_silhouette(keep, flat, counts, analytic)
     return keep
 
 
+def _keep_outer_silhouette(keep, flat, counts, analytic):
+    """The largest rim and a long edge stay. A smaller cone circle is a chamfer."""
+    import numpy as np
+    radii = [float(info['r']) for info in analytic if info and info.get('r')]
+    outer = max(radii) if radii else 0.0
+    spans = np.cumsum(np.r_[0, counts])
+    for i, info in enumerate(analytic):
+        a, b = int(spans[i]), int(spans[i + 1])
+        if b - a >= 2:
+            length = float(np.linalg.norm(np.diff(flat[a:b], axis=0), axis=1).sum())
+        else:
+            length = 0.0
+        if info and info.get('r') and outer and float(info['r']) >= 0.92 * outer:
+            keep[i] = True
+        elif info and info.get('cone') and info.get('r') and outer and float(info['r']) < 0.92 * outer:
+            keep[i] = False
+        elif not info and length >= max(outer, 1.0) * 2.0:
+            keep[i] = True
+
+
 def _fill_mask(tri2, n=64):
+    """Which cells the part covers. Triangles are tested together, not one Python loop each."""
     import numpy as np
     if len(tri2) == 0:
         return None
@@ -644,32 +788,26 @@ def _fill_mask(tri2, n=64):
     hi = flat.max(0)
     span = float(max(hi[0] - lo[0], hi[1] - lo[1], 1e-6))
     cell = span / n
-    grid = np.zeros((n, n), np.uint8)
-    for tri in tri2:
-        tlo = tri.min(0)
-        thi = tri.max(0)
-        x0 = max(0, int((tlo[0] - lo[0]) / cell))
-        x1 = min(n - 1, int((thi[0] - lo[0]) / cell))
-        y0 = max(0, int((tlo[1] - lo[1]) / cell))
-        y1 = min(n - 1, int((thi[1] - lo[1]) / cell))
-        if x1 < x0 or y1 < y0:
+    xs = lo[0] + (np.arange(n) + 0.5) * cell
+    ys = lo[1] + (np.arange(n) + 0.5) * cell
+    xx, yy = np.meshgrid(xs, ys)
+    pts = np.stack([xx.ravel(), yy.ravel()], axis=1)
+    covered = np.zeros(pts.shape[0], np.uint8)
+    for start in range(0, len(tri2), 64):
+        tris = np.asarray(tri2[start:start + 64], float)
+        v0 = tris[:, 2] - tris[:, 0]
+        v1 = tris[:, 1] - tris[:, 0]
+        den = v0[:, 0] * v1[:, 1] - v1[:, 0] * v0[:, 1]
+        ok = np.abs(den) >= 1e-12
+        if not ok.any():
             continue
-        xs = lo[0] + (np.arange(x0, x1 + 1) + 0.5) * cell
-        ys = lo[1] + (np.arange(y0, y1 + 1) + 0.5) * cell
-        xx, yy = np.meshgrid(xs, ys)
-        p = np.stack([xx, yy], axis=-1).reshape(-1, 2)
-        v0 = tri[2] - tri[0]
-        v1 = tri[1] - tri[0]
-        den = v0[0] * v1[1] - v1[0] * v0[1]
-        if abs(den) < 1e-12:
-            continue
-        v2 = p - tri[0]
-        alpha = (v2[:, 0] * v1[1] - v1[0] * v2[:, 1]) / den
-        beta = (v0[0] * v2[:, 1] - v2[:, 0] * v0[1]) / den
-        inside = (alpha >= -1e-6) & (beta >= -1e-6) & (alpha + beta <= 1 + 1e-6)
-        hit = inside.reshape(yy.shape)
-        grid[y0:y1 + 1, x0:x1 + 1][hit] = 1
-    return lo, cell, grid
+        tris, v0, v1, den = tris[ok], v0[ok], v1[ok], den[ok]
+        rel = pts[None, :, :] - tris[:, None, 0, :]
+        alpha = (rel[:, :, 0] * v1[:, None, 1] - v1[:, None, 0] * rel[:, :, 1]) / den[:, None]
+        beta = (v0[:, None, 0] * rel[:, :, 1] - rel[:, :, 0] * v0[:, None, 1]) / den[:, None]
+        inside = (alpha >= -1e-6) & (beta >= -1e-6) & (alpha + beta <= 1.0 + 1e-6)
+        covered[inside.any(axis=0)] = 1
+    return lo, cell, covered.reshape(n, n)
 
 
 def _edges(shape, defl, step, workers):
@@ -729,11 +867,11 @@ def _sample_edges(args):
     import numpy as np
     cache, i0, i1, defl, step = args
     from OCP.BRep import BRep_Tool
-    from OCP.BRepAdaptor import BRepAdaptor_Curve
+    from OCP.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
     from OCP.BRepLib import BRepLib
     from OCP.BinTools import BinTools
     from OCP.GCPnts import GCPnts_QuasiUniformDeflection
-    from OCP.GeomAbs import GeomAbs_Circle, GeomAbs_G1, GeomAbs_Line
+    from OCP.GeomAbs import GeomAbs_Circle, GeomAbs_Cone, GeomAbs_G1, GeomAbs_Line
     from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE
     from OCP.TopExp import TopExp
     from OCP.TopoDS import TopoDS, TopoDS_Shape
@@ -780,11 +918,19 @@ def _sample_edges(args):
                 da = 2 * np.arccos(max(-1.0, 1 - defl / max(radius, 1e-9))) if radius > defl else np.pi / 4
                 params = np.linspace(u0, u1, max(3, int(np.ceil(abs(u1 - u0) / max(da, 1e-3))) + 1))
                 sampled = origin + radius * (np.cos(params)[:, None] * xd + np.sin(params)[:, None] * yd)
+                on_cone = False
+                for face in faces:
+                    try:
+                        if BRepAdaptor_Surface(face).GetType() == GeomAbs_Cone:
+                            on_cone = True
+                    except Exception:
+                        pass
                 curve_info = {
                     'u0': float(u0), 'u1': float(u1), 'r': float(radius),
                     'o': (float(origin[0]), float(origin[1]), float(origin[2])),
                     'x': (float(xd[0]), float(xd[1]), float(xd[2])),
                     'y': (float(yd[0]), float(yd[1]), float(yd[2])),
+                    'cone': on_cone,
                 }
             else:
                 deflect = GCPnts_QuasiUniformDeflection(curve, defl)
