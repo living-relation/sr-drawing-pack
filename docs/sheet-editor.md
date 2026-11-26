@@ -251,7 +251,7 @@ The editor offers two presets. The map is provisional until `dev/compare_engines
 
 ## View generation
 
-`sheet2d.project` builds drawing views from part shapes. The view set is front, top, right and trimetric. Each view keeps only the visible edges. Hidden edges are not returned. A round part is a circle or a silhouette plus a centre mark, not the edges of its mesh. `time_view_set` reports seconds per view. The benchmark assembly has several hundred parts, and the four views together must finish in 120 seconds.
+The speed check builds the several-hundred-part assembly as a temporary STEP file and draws it with the exact-edge engine (XQ Exact). The four views together must finish in 120 seconds. Hidden edges are not drawn. A round part seen on its end is a circle. The check needs OCP and VTK (`pip install cadquery-ocp vtk`). VTK draws the depth picture offscreen, so the check machine does not need a screen.
 
 ```text
 python dev/time_views.py views.png
