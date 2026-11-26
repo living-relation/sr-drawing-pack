@@ -87,6 +87,9 @@ def _bbox(line):
     if line['kind'] == 'circle':
         (cx, cy), r = line['c'], line['r']
         return (cx - r, cy - r, cx + r, cy + r)
+    if line['kind'] == 'ellipse':
+        (cx, cy), r = line['c'], max(line['rx'], line['ry'])
+        return (cx - r, cy - r, cx + r, cy + r)
     xs = [p[0] for p in line['pts']]
     ys = [p[1] for p in line['pts']]
     return (min(xs), min(ys), max(xs), max(ys))
@@ -167,13 +170,31 @@ def draw_view_lines(sh, el, geom, scale, caption=None, min_mm=MIN_LINE_MM, small
             r = line['r'] * s
             sh.circle((cx + (c[0] - uc) * s, cy + (c[1] - vc) * s), r, sty, n=max(12, min(72, int(r * 4))))
             continue
-        sh.pl([(cx + (p[0] - uc) * s, cy + (p[1] - vc) * s) for p in line['pts']], sty)
+        if line['kind'] == 'ellipse':
+            pts = _ellipse_pts(line, 48)
+        else:
+            pts = line['pts']
+        sh.pl([(cx + (p[0] - uc) * s, cy + (p[1] - vc) * s) for p in pts], sty)
     yy = y - 2.0
     for i, text in enumerate(caption or []):
         hh = VIEW_CAPTION_H if i == 0 and not text.startswith('SCALE ') else VIEW_SUB_H
         sh.txt(x + w / 2, yy, text, h=hh, bold=(hh == VIEW_CAPTION_H), va='top')
         yy -= hh * 1.6
     return dropped
+
+
+def _ellipse_pts(line, n):
+    import math
+    cx, cy = line['c']
+    rx, ry = line['rx'], line['ry']
+    rot = line.get('rot') or 0.0
+    c, s = math.cos(rot), math.sin(rot)
+    pts = []
+    for i in range(n + 1):
+        t = 2 * math.pi * i / n
+        lx, ly = rx * math.cos(t), ry * math.sin(t)
+        pts.append((cx + c * lx - s * ly, cy + s * lx + c * ly))
+    return pts
 
 
 def _size(ext):

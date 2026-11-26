@@ -9,7 +9,7 @@ are fitted as ellipses. A STEP file is read once and cached by its hash.
 """
 import os
 
-from sheet2d.engines.curves import bridge_gaps, fit_chain
+from sheet2d.engines.curves import analytic_curve, bridge_gaps, fit_chain
 
 PAPER_PX = 0.02
 PAPER_DEFL = 0.02
@@ -117,12 +117,12 @@ def _render(step, names, workers=None, mode='exact'):
     plain, hardware = _hardware_split(shape)
     if hardware:
         if plain is None:
-            points, counts, tangent = _empty_edges()
+            points, counts, tangent, analytic = _empty_edges()
         else:
-            points, counts, tangent = _edges(plain, defl, step_len, workers)
+            points, counts, tangent, analytic = _edges(plain, defl, step_len, workers)
         hardware = [(solid, _edges(solid, defl, step_len, 1), _solid_triangles(solid)) for solid in hardware]
     else:
-        points, counts, tangent = _edges(shape, defl, step_len, workers)
+        points, counts, tangent, analytic = _edges(shape, defl, step_len, workers)
     edge_s = time.perf_counter() - t_edge
     depth = _Depth(V, F)
     views = {}
@@ -137,9 +137,11 @@ def _render(step, names, workers=None, mode='exact'):
         ext_r = float(np.ptp(corners @ r))
         ext_u = float(np.ptp(corners @ u))
         zb, to_win, dz, px = depth.render(c, r, u, ext_r, ext_u, res)
-        use_points, use_counts, use_tangent = _with_hardware_outline(
-            points, counts, tangent, hardware, r, u)
-        lines = _view_lines(V, F, CN, use_points, use_counts, use_tangent, c, r, u, zb, to_win, dz, px, defl, name, fit)
+        use_points, use_counts, use_tangent, use_analytic = _with_hardware_outline(
+            points, counts, tangent, analytic, hardware, r, u)
+        lines = _view_lines(
+            V, F, CN, use_points, use_counts, use_tangent, use_analytic,
+            c, r, u, zb, to_win, dz, px, defl, name, fit)
         us = [p[0] for line in lines for p in _pts_of(line)]
         vs = [p[1] for line in lines for p in _pts_of(line)]
         if not us:
@@ -325,7 +327,7 @@ FASTENER_L_MM = 200.0
 
 def _empty_edges():
     import numpy as np
-    return np.zeros((0, 3)), np.zeros(0, int), np.zeros(0, bool)
+    return np.zeros((0, 3)), np.zeros(0, int), np.zeros(0, bool), []
 
 
 def _solid_list(shape):
@@ -442,27 +444,32 @@ def _solid_triangles(solid):
     return np.stack(tris)
 
 
-def _with_hardware_outline(points, counts, tangent, hardware, right, up):
+def _with_hardware_outline(points, counts, tangent, analytic, hardware, right, up):
     """Add fastener edges, minus socket, chamfer, and cone lines inside the outline."""
     import numpy as np
-    chunks = [(points, counts, tangent)]
+    chunks = [(points, counts, tangent, list(analytic))]
     for _solid, edges, tris in hardware:
-        hp, hc, ht = edges
+        hp, hc, ht, ha = edges
         if len(hc) == 0 or len(tris) == 0:
-            chunks.append((hp, hc, ht))
+            chunks.append((hp, hc, ht, list(ha)))
             continue
         flat = np.c_[hp @ right, hp @ up]
         tri2 = np.stack([tris @ right, tris @ up], axis=-1)
         keep = _outline_edges(flat, hc, tri2)
         if not keep.any():
             continue
-        chunks.append((_take_edges(hp, hc, keep), hc[keep], ht[keep]))
+        kept = np.nonzero(keep)[0]
+        chunks.append((_take_edges(hp, hc, keep), hc[keep], ht[keep], [ha[i] for i in kept]))
     chunks = [c for c in chunks if len(c[1])]
     if not chunks:
         return _empty_edges()
+    analytic_out = []
+    for _p, _c, _t, ha in chunks:
+        analytic_out.extend(ha)
     return (np.concatenate([c[0] for c in chunks]),
             np.concatenate([c[1] for c in chunks]).astype(int),
-            np.concatenate([c[2] for c in chunks]).astype(bool))
+            np.concatenate([c[2] for c in chunks]).astype(bool),
+            analytic_out)
 
 
 def _take_edges(points, counts, keep):
@@ -561,10 +568,14 @@ def _edges(shape, defl, step, workers):
     except OSError:
         pass
     if not parts or all(len(p[1]) == 0 for p in parts):
-        return np.zeros((0, 3)), np.zeros(0, int), np.zeros(0, bool)
+        return np.zeros((0, 3)), np.zeros(0, int), np.zeros(0, bool), []
+    analytic = []
+    for part in parts:
+        analytic.extend(part[3])
     return (np.concatenate([p[0] for p in parts]),
             np.concatenate([p[1] for p in parts]).astype(int),
-            np.concatenate([p[2] for p in parts]).astype(bool))
+            np.concatenate([p[2] for p in parts]).astype(bool),
+            analytic)
 
 
 def _write_temp_brep(shape):
@@ -610,7 +621,7 @@ def _sample_edges(args):
     BinTools.Read_s(shape, cache)
     mapped = Map()
     TopExp.MapShapesAndAncestors_s(shape, TopAbs_EDGE, TopAbs_FACE, mapped)
-    pts, counts, tangent = [], [], []
+    pts, counts, tangent, analytic = [], [], [], []
     for index in range(i0 + 1, min(i1, mapped.Extent()) + 1):
         edge = _cast(TopoDS, 'Edge')(mapped.FindKey(index))
         if BRep_Tool.Degenerated_s(edge):
@@ -630,6 +641,7 @@ def _sample_edges(args):
         try:
             curve = BRepAdaptor_Curve(edge)
             kind = curve.GetType()
+            curve_info = None
             if kind == GeomAbs_Line:
                 p = curve.Value(curve.FirstParameter())
                 q = curve.Value(curve.LastParameter())
@@ -645,6 +657,12 @@ def _sample_edges(args):
                 da = 2 * np.arccos(max(-1.0, 1 - defl / max(radius, 1e-9))) if radius > defl else np.pi / 4
                 params = np.linspace(u0, u1, max(3, int(np.ceil(abs(u1 - u0) / max(da, 1e-3))) + 1))
                 sampled = origin + radius * (np.cos(params)[:, None] * xd + np.sin(params)[:, None] * yd)
+                curve_info = {
+                    'u0': float(u0), 'u1': float(u1), 'r': float(radius),
+                    'o': (float(origin[0]), float(origin[1]), float(origin[2])),
+                    'x': (float(xd[0]), float(xd[1]), float(xd[2])),
+                    'y': (float(yd[0]), float(yd[1]), float(yd[2])),
+                }
             else:
                 deflect = GCPnts_QuasiUniformDeflection(curve, defl)
                 if not deflect.IsDone() or deflect.NbPoints() < 2:
@@ -658,9 +676,10 @@ def _sample_edges(args):
         pts.append(dense)
         counts.append(len(dense))
         tangent.append(is_tan)
+        analytic.append(curve_info)
     if not pts:
-        return np.zeros((0, 3)), np.zeros(0, int), np.zeros(0, bool)
-    return np.concatenate(pts), np.array(counts), np.array(tangent)
+        return np.zeros((0, 3)), np.zeros(0, int), np.zeros(0, bool), []
+    return np.concatenate(pts), np.array(counts), np.array(tangent), analytic
 
 
 def _densify(points, step):
@@ -826,13 +845,14 @@ def _runs(points2d, keep, counts):
     return out
 
 
-def _view_lines(verts, faces, corners, points, counts, tangent, toward, right, up, image, to_win, dz, px, defl, name, fit):
+def _view_lines(verts, faces, corners, points, counts, tangent, analytic, toward, right, up, image, to_win, dz, px, defl, name, fit):
     import numpy as np
     lines = []
     if len(counts):
         tol = dz * (2.5 * px + defl)
         keep = _visible(points, image, to_win, tol)
         flat = np.c_[points @ right, points @ up]
+        lines.extend(_analytic_lines(flat, keep, counts, tangent, analytic, right, up, px))
         for flag, style in ((False, 'vis'), (True, 'thin')):
             mask = tangent == flag
             if not mask.any():
@@ -867,6 +887,61 @@ def _view_lines(verts, faces, corners, points, counts, tangent, toward, right, u
                 if item and _length(item) >= 1.5 * px:
                     lines.append(item)
     return lines
+
+
+def _analytic_lines(flat, keep, counts, tangent, analytic, right, up, px):
+    """Circles and ellipses from the real edge. Those edges are then not fitted from samples."""
+    import numpy as np
+    if not analytic:
+        return []
+    spans = np.cumsum(np.r_[0, counts])
+    out = []
+    for i, info in enumerate(analytic):
+        if not info:
+            continue
+        a, b = int(spans[i]), int(spans[i + 1])
+        visible = keep[a:b]
+        if visible.size < 2 or float(visible.mean()) < 0.45:
+            continue
+        # One visible run. A full rim that is mostly in view stays a whole circle or ellipse.
+        runs = _param_runs(visible)
+        if not runs:
+            continue
+        full = abs(info['u1'] - info['u0']) >= 2.0 * np.pi - 0.25 and float(visible.mean()) >= 0.8
+        spans_u = [(info['u0'], info['u1'])] if full else [
+            _param_span(info['u0'], info['u1'], b - a, run) for run in runs]
+        style = 'thin' if tangent[i] else 'vis'
+        for u0, u1 in spans_u:
+            item = analytic_curve(info['o'], info['x'], info['y'], info['r'], u0, u1, right, up, style, partial=not full)
+            if item and _length(item) >= 1.5 * px:
+                out.append(item)
+        keep[a:b] = False
+    return out
+
+
+def _param_runs(visible):
+    """Inclusive index pairs of contiguous visible samples."""
+    import numpy as np
+    runs = []
+    start = None
+    for i, flag in enumerate(visible):
+        if flag and start is None:
+            start = i
+        elif not flag and start is not None:
+            if i - start >= 2:
+                runs.append((start, i - 1))
+            start = None
+    if start is not None and len(visible) - start >= 2:
+        runs.append((start, len(visible) - 1))
+    return runs
+
+
+def _param_span(u0, u1, count, run):
+    if count <= 1:
+        return u0, u1
+    a = u0 + (u1 - u0) * run[0] / (count - 1)
+    b = u0 + (u1 - u0) * run[1] / (count - 1)
+    return a, b
 
 
 def _length(line):
