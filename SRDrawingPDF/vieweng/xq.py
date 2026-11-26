@@ -439,6 +439,21 @@ def _densify(points, step):
     return np.vstack([points[:1], points[index] + (points[index + 1] - points[index]) * frac])
 
 
+def _offscreen_window():
+    """A depth window that does not need a screen.
+
+    The pip VTK build opens an X window by default. A check machine has no
+    display, and that window crashes. OSMesa draws on the CPU instead.
+    """
+    import vtk
+    if hasattr(vtk, 'vtkOSOpenGLRenderWindow'):
+        win = vtk.vtkOSOpenGLRenderWindow()
+    else:
+        win = vtk.vtkRenderWindow()
+    win.SetOffScreenRendering(1)
+    return win
+
+
 class _Depth(object):
     def __init__(self, verts, faces):
         import numpy as np

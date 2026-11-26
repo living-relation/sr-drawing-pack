@@ -4,8 +4,8 @@ The sheet asks an engine for one view's lines. Every engine returns the same
 line dicts (visible edges only). Hidden lines are dropped here, so an engine
 cannot put dashed back edges on the sheet.
 
-Presets are what the editor offers. Which engine each preset uses is
-provisional until the side-by-side bake-off (dev/compare_engines.py).
+Presets are what the editor offers. The bake-off picked XQ for both:
+Draft is Quick Look, HQ is Exact Lines.
 """
 def _xq():
     from vieweng.xq import XqEngine

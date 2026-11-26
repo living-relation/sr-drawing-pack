@@ -1,24 +1,24 @@
-"""Time the fast views of an assembly and write a PNG.
+"""Time exact-edge views of an assembly and write a PNG.
 
-From the repo folder, the built-in benchmark assembly (no CAD file needed):
+From the repo folder (needs OCP and VTK: pip install cadquery-ocp vtk):
 
   python dev/time_views.py views.png
 
-A real assembly exported from Fusion as STEP (needs OCP: pip install cadquery-ocp):
+A real assembly exported from Fusion as STEP:
 
   python dev/time_views.py views.png --step assembly.step
 
-Keep STEP files outside this public repo.
+Keep STEP files outside this public repo. VTK draws the depth picture offscreen.
 """
 import os
 import sys
-import time
+import tempfile
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(_ROOT, 'SRDrawingPDF'))
 sys.path.insert(0, os.path.join(_ROOT, 'dev'))
 
-from sheet2d.project import VIEW_LIMIT_S, build_benchmark_assembly, part_count, render_views_png  # noqa: E402
+from sheet2d.project import VIEW_LIMIT_S, VIEW_NAMES  # noqa: E402
 
 
 def main(argv):
@@ -34,24 +34,33 @@ def main(argv):
     if len(args) != 1:
         print('usage: python dev/time_views.py views.png [--step assembly.step]')
         return 2
-    mesh_s = 0.0
-    if step:
-        from step_mesh import load_step
-        parts, info = load_step(step)
-        mesh_s = info['mesh_s']
-        print('STEP read %.3f s (not counted: Fusion would hand the bodies over directly)' % info['read_s'])
-        print('mesh %.3f s  solids %d  triangles %d  deflection %.3f' % (
-            mesh_s, info['solids'], info['triangles'], info['deflection']))
-    else:
-        t0 = time.perf_counter()
-        parts = build_benchmark_assembly()
-        mesh_s = time.perf_counter() - t0
-    views = render_views_png(parts, args[0])
-    total = mesh_s + sum(v['seconds'] for v in views)
-    print('parts %d' % part_count(parts))
-    for view in views:
-        print('%s %.3f s  lines %d' % (view['name'], view['seconds'], len(view['lines'])))
-    print('total %.3f s (mesh + views)  limit %.0f s  %s' % (total, VIEW_LIMIT_S, 'PASS' if total < VIEW_LIMIT_S else 'FAIL'))
+    from vieweng.xq import XqEngine
+    engine = XqEngine()
+    ok, why = engine.available()
+    if not ok:
+        print(why)
+        return 1
+    cleanup = None
+    if not step:
+        from vieweng.stepbench import write_benchmark
+        handle = tempfile.NamedTemporaryFile(suffix='.step', delete=False)
+        handle.close()
+        step = handle.name
+        cleanup = step
+        count = write_benchmark(step)
+        print('benchmark parts %d' % count)
+    views, timing = engine.project_views(VIEW_NAMES, step=step, mode='exact')
+    if cleanup:
+        os.remove(cleanup)
+    from compare_engines import write_png
+    write_png(args[0], {'xq': views}, VIEW_NAMES)
+    total = timing['total_s']
+    for name in VIEW_NAMES:
+        view = views[name]
+        print('%s %.3f s  lines %d' % (name, view['seconds'], len(view['lines'])))
+    print('read %.3f s  mesh %.3f s  edges %.3f s' % (
+        timing['read_s'], timing['mesh_s'], timing['edges_s']))
+    print('total %.3f s  limit %.0f s  %s' % (total, VIEW_LIMIT_S, 'PASS' if total < VIEW_LIMIT_S else 'FAIL'))
     print(args[0])
     return 0 if total < VIEW_LIMIT_S else 1
 
