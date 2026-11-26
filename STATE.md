@@ -5,19 +5,19 @@ Last_Verified_SHA: b4aa9fa
 Updated: 2026-11-25 -- Claude (claude.ai chat, coordinator), lifecycle status logged
 
 ## Current Goal
-- Objective: Two render modes are done (ADR-051/052, PR #36). Now settling how drawings, maker files and part numbers link in sparkCAD (ADR-056, ADR-057) before the next features.
+- Objective: Lifecycle plan (steps 1-9) in SPEC first, then features one stream at a time (ADR-062). Vault side lives in the EasyPDM fork (ADR-063).
 - Spec_Ref: docs/SPEC.md#interfaces
 
 ## Active Blocker
-- Status: BLOCKED
-- Detail: waiting on Daniel: D2, D3, D4, D1, C8, C7, C9, C4, C5, C6, C3, B9, C2 (full text and recs: docs/RESEARCH.md "Vault linking: proposals and open questions").
+- Status: NONE
+- Detail: none (all answered 2026-11-25, ADR-058 to ADR-063); vault questions D5 to D7 live in the EasyPDM fork SPEC.
 
 ## Next Single Step
-- [NEXT] Get Daniel's answers in one pass (D2 lifecycle plan first; docs/RESEARCH.md "Design lifecycle" and "Fast build plan"), record them as ADRs, then write the SPEC lifecycle section.
+- [NEXT] Write the steps 1-9 lifecycle section in docs/SPEC.md for Daniel's approval (ADR-062, D2a); one work stream at a time until his usage resets.
 
 ## Pointers
 - Branch_States: generated (state_manager.py branches)
 - Backlog: BACKLOG.md
-- Latest_ADR: ADR-057
+- Latest_ADR: ADR-063
 - Last_Cleanup: 2026-11-23 @ 818b35e
-- Question_Counter: D4
+- Question_Counter: D7

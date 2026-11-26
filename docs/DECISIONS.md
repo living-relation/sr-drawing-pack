@@ -481,3 +481,51 @@ Entry format: ID, Status, Context, Decision, Rejected, Supersedes, Reopen if.
 - Rejected: links kept only on the drawing's parts list.
 - Supersedes: none; works with ADR-029 (BOM from sr-export's bom.json) and ADR-032 (the vault keeps the record).
 - Reopen if: none.
+
+## ADR-058: Part numbers from the vault counter, written into Fusion first (2026-11-25, Daniel, D1a, C8a)
+- Status: Accepted
+- Context: The title block and BOM must carry the vault's number from the start; Fusion is where the BOM is made.
+- Decision: A Fusion add-in button "Get part numbers" takes the next numbers, by kind, from the vault counter for every custom component with a blank part number and writes them into the Fusion components. The drawing title block and the BOM read them from Fusion; nobody types a number on a drawing. The vault accepts only numbers it issued. Vault unreachable: the drawing stays DRAFT with no number and cannot be uploaded. Format: PRT / SUB / ASY / CBL / WIR-####, plus MFR (purchased) and CUS (customer).
+- Rejected: engineers type numbers by a rule; the vault numbers at upload.
+- Supersedes: refines ADR-019 (the vault's single counter still hands out every number).
+- Reopen if: none.
+
+## ADR-059: Editable drawing file (2026-11-25, Daniel, C7a)
+- Status: Accepted
+- Context: A PDF cannot be edited; drawings must be reopened and edited later (ADR-056).
+- Decision: The editor saves its own drawing file (sheets, view positions, dimensions, notes, parts-list placement, the STEP fingerprint). PDF and DXF are exports of it. It is stored in the vault beside the PDF. Editing later: check out, open in the editor with Fusion on the model, edit, check in.
+- Rejected: regenerating from scratch.
+- Supersedes: none.
+- Reopen if: none.
+
+## ADR-060: Maker-file pairing and binding (2026-11-25, Daniel, C9a, C4a)
+- Status: Accepted
+- Context: Maker files must always match their item's rev (ADR-056).
+- Decision: Outside maker files are paired in the drawing tool's "Save to vault" window or later in the vault, same rules. Every drawing and maker file records the sha256 fingerprint of the STEP it was made from; G-code and .nc get a stamp comment line (number, rev, fingerprint), DXF a text note.
+- Rejected: fingerprint in the JSON only; vault-only pairing.
+- Supersedes: none.
+- Reopen if: a machine controller rejects the stamp line.
+
+## ADR-061: Child revs and the release check (2026-11-25, Daniel, C5a, C6a)
+- Status: Accepted
+- Context: Assemblies must not release with stale or missing child documents (ADR-057).
+- Decision: A new child rev flags each parent "review needed", never an automatic parent rev. An assembly cannot release until every custom child, all the way down, has its drawing and needed maker files with matching fingerprints.
+- Rejected: parent follows the latest child; warn only.
+- Supersedes: none.
+- Reopen if: none.
+
+## ADR-062: Build order (2026-11-25, Daniel, D2a, D3b, B9a, C3a, C2a)
+- Status: Accepted
+- Context: Many open steps; Daniel's usage is near its limit.
+- Decision: Write and approve the full steps 1-9 lifecycle section in SPEC before building more features (D2a). One work stream at a time until Daniel's usage resets, then parallel agents (D3b, for now). First features: more sheets, first angle, detail views, wireframe (B9a). First BOM style on the sheet: indented (C3a). Exploded views: exploded positions added to the data file the Fusion export writes (C2a; an sr-export change).
+- Rejected: features before the lifecycle plan; parallel streams now.
+- Supersedes: none.
+- Reopen if: usage resets (switch to parallel streams).
+
+## ADR-063: The vault plan lives in the EasyPDM fork (2026-11-25, Daniel, D4a)
+- Status: Accepted
+- Context: The sparkCAD agent must build this plan, not fall back to something else.
+- Decision: The vault side is written into the EasyPDM fork (research655/EasyPDM) on the workstation-core template: its docs/DECISIONS.md V-001 to V-009 and docs/SPEC.md milestones V0 to V8 restate ADR-056 to ADR-061, with a rule that the SPEC is binding. Agents work there on branches and PRs. Open there: D5 rev format, D6 approval rule, D7 purchased parts.
+- Rejected: only Daniel's sparkCAD sessions touch it.
+- Supersedes: none.
+- Reopen if: none.
