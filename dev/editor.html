@@ -121,7 +121,7 @@
       <button id="split-above" type="button" disabled>Split above</button>
       <button id="split-below" type="button" disabled>Split below</button>
     </div>
-    <p class="muted">Drag a table's top band to move that piece.</p>
+    <p class="muted">Drag a table's top band to move that piece. Drag a balloon to move it; the leader stays on the part.</p>
     <h2>BOM</h2>
     <ul id="bom"></ul>
     <h2>Suggestions</h2>
@@ -375,6 +375,7 @@ function point(svg, e) {
 function onDown(e) {
   var svg = e.currentTarget;
   var head = e.target.closest('[data-drag]');
+  var balloon = e.target.closest('[data-balloon]');
   var row = e.target.closest('[data-key]');
   if (head) {
     drag = {
@@ -385,13 +386,24 @@ function onDown(e) {
     };
     head.setPointerCapture(e.pointerId);
     e.preventDefault();
+  } else if (balloon) {
+    drag = {
+      mode: 'balloon', id: balloon.getAttribute('data-balloon'),
+      x: parseFloat(balloon.getAttribute('data-x')),
+      y: parseFloat(balloon.getAttribute('data-y')),
+      ax: parseFloat(balloon.getAttribute('data-ax')),
+      ay: parseFloat(balloon.getAttribute('data-ay')),
+      start: point(svg, e), last: point(svg, e), moved: false
+    };
+    balloon.setPointerCapture(e.pointerId);
+    e.preventDefault();
   } else if (row) {
     drag = {mode: 'select', key: row.getAttribute('data-key'), start: point(svg, e)};
   }
 }
 
 function onMove(e) {
-  if (!drag || drag.mode !== 'move') return;
+  if (!drag || (drag.mode !== 'move' && drag.mode !== 'balloon')) return;
   var svg = e.currentTarget;
   var p = point(svg, e);
   if (Math.hypot(p.x - drag.start.x, p.y - drag.start.y) > 1) drag.moved = true;
@@ -413,6 +425,10 @@ function onUp(e) {
   if (!done.moved) return;
   var dx = done.last.x - done.start.x;
   var dy = -(done.last.y - done.start.y);
+  if (done.mode === 'balloon') {
+    run('move_balloon', {id: done.id, x: done.x + dx, y: done.y + dy, ax: done.ax, ay: done.ay});
+    return;
+  }
   run('move_bom', {id: done.id, x1: done.x1 + dx, ytop: done.ytop + dy});
 }
 

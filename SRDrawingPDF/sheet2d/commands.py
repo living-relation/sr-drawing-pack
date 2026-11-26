@@ -70,6 +70,8 @@ COMMAND_DOCS = {
     'renumber_bom': 'Give the rows item numbers in list order. Balloons follow the keys.',
     'load_bom_csv': 'Load BOM rows from a CSV file or a CSV string.',
     'load_bom_components': 'Load BOM rows from plain component records (part number, description, material, qty).',
+    'bom_from_components': 'Build the BOM from the assembly component list (one row per part, qty summed) and place it. Anchor bottom_left, or above_title.',
+    'auto_balloons': 'Balloons with leaders on one view (trimetric unless view is set). Item numbers match the BOM. Layout follows SOLIDWORKS Auto Balloon.',
     'place_bom': 'Place or move a BOM region. Rows flow into regions and continue when one fills.',
     'move_bom': 'Move a BOM region. Same fields as place_bom; id is required.',
     'remove_bom': 'Remove a BOM region. Missing id is a no-op. Rows stay on the drawing.',
@@ -579,10 +581,138 @@ def _cmd_place_balloon(doc, args):
     fields = _num_fields(args, ('x', 'y', 'ax', 'ay'))
     if 'bom_key' in args and args['bom_key'] is not None:
         fields['bom_key'] = args['bom_key']
+    if args.get('view'):
+        fields['view'] = args['view']
+    if 'auto' in args and args['auto'] is not None:
+        fields['auto'] = bool(args['auto'])
     if existing is None and 'bom_key' not in fields:
         raise ValueError('bom_key is required')
     el = _upsert(doc, sheet_id, 'balloon', args.get('id'), fields, ('x', 'y', 'ax', 'ay', 'bom_key'))
     return {'id': el['id'], 'bom_key': el.get('bom_key'), 'item': item_of(doc, el.get('bom_key'))}
+
+
+def _cmd_bom_from_components(doc, args):
+    """One BOM row per part, then the table. Default anchor is the bottom-left corner."""
+    from .callouts import rollup_components
+    rows, _targets = rollup_components(args.get('components') or [])
+    loaded = _take_rows(doc, rows, bool(args.get('replace', True)))
+    sheet_id = args.get('sheet')
+    if not sheet_id:
+        return loaded
+    anchor = args.get('anchor') or 'bottom_left'
+    if anchor not in ('bottom_left', 'above_title'):
+        raise ValueError('anchor must be bottom_left or above_title')
+    placed = _cmd_place_bom(doc, {'id': args.get('id') or 'bom', 'sheet': sheet_id, 'anchor': anchor})
+    loaded['id'] = placed['id']
+    loaded['anchor'] = anchor
+    loaded['segment'] = placed['segment']
+    return loaded
+
+
+def _view_by_id(sheet, view_id):
+    for el in sheet.get('elements') or []:
+        if el.get('type') == 'view' and el.get('id') == view_id:
+            return el
+    return None
+
+
+def _trimetric_view(sheet):
+    views = [el for el in (sheet.get('elements') or []) if el.get('type') == 'view']
+    for el in views:
+        label = '%s %s' % (el.get('label') or '', el.get('id') or '')
+        if 'trimetric' in label.lower():
+            return el
+    return None
+
+
+def _balloon_blockers(doc, sheet, view):
+    """Rectangles balloons must stay clear of, including every view frame."""
+    from .canvas import BOM_COLS, BOM_COLS_COMPACT, TOL_W, revlog_rect
+    spec = size_of(doc, sheet.get('size') or 'B')
+    width, height = float(spec['width']), float(spec['height'])
+    margin = 10.0
+    title_left = width - margin - 178.0 - TOL_W
+    rects = [(title_left, margin, width - margin, margin + 52.0)]
+    if doc.draft:
+        rects.append((width - margin - 178.0, margin + 52.0, width - margin, margin + 59.0))
+    rx0, ry0, rx1, ry1 = revlog_rect(doc.revlog, x1=width - margin, y1=height - margin)
+    rects.append((rx0, ry0, rx1, ry1))
+    for seg in bom_layout(doc)['segments']:
+        if seg.get('sheet') != sheet.get('id') or not seg.get('rows'):
+            continue
+        table_w = sum(BOM_COLS_COMPACT if seg.get('anchor') == 'bottom_left' else BOM_COLS)
+        rects.append((seg['x1'] - table_w, seg['bottom'], seg['x1'], seg['ytop']))
+    for el in sheet.get('elements') or []:
+        if el.get('type') == 'view':
+            rects.append((float(el['x']), float(el['y']),
+                          float(el['x']) + float(el['w']), float(el['y']) + float(el['h'])))
+    del view
+    return rects
+
+
+def _cmd_auto_balloons(doc, args):
+    """Leaders on one view. Item numbers are the BOM item numbers."""
+    from .callouts import LAYOUTS, layout_balloons, rollup_components
+    sheet_id = args.get('sheet')
+    if not sheet_id and doc.sheets:
+        sheet_id = doc.sheets[0].get('id')
+    _index, sheet = sheet_by_id(doc, sheet_id)
+    del _index
+    view = _view_by_id(sheet, args.get('view')) if args.get('view') else _trimetric_view(sheet)
+    if view is None:
+        raise ValueError('no view to balloon; pass view (default is the trimetric view)')
+    pattern = args.get('layout') or 'square'
+    if pattern not in LAYOUTS:
+        raise ValueError('layout must be one of %s' % ', '.join(LAYOUTS))
+    ignore = True if args.get('ignore_multiple') is None else bool(args.get('ignore_multiple'))
+    reverse = bool(args.get('reverse'))
+    magnetic = bool(args.get('magnetic')) and pattern != 'circular'
+    rows = [row for row in doc.bom if row.get('shown', True)]
+    _rolled, targets = rollup_components(args.get('components') or [])
+    del _rolled
+    jobs = []
+    for row in rows:
+        tips = list(targets.get(row.get('key')) or [None])
+        if ignore:
+            tips = tips[:1] or [None]
+        for index, tip in enumerate(tips):
+            jobs.append((row, tip, index))
+    frame = (float(view['x']), float(view['y']), float(view['w']), float(view['h']))
+    spec = size_of(doc, sheet.get('size') or 'B')
+    placements, lines = layout_balloons(
+        frame, [tip for _row, tip, _i in jobs], pattern, reverse,
+        _balloon_blockers(doc, sheet, view), (float(spec['width']), float(spec['height'])), magnetic)
+    kept = []
+    for el in sheet.get('elements') or []:
+        if el.get('auto') and el.get('view') == view.get('id') and el.get('type') in ('balloon', 'magline'):
+            continue
+        kept.append(el)
+    sheet['elements'] = kept
+    made = []
+    for (row, _tip, index), (x, y, ax, ay) in zip(jobs, placements):
+        bid = 'ab-%s-%s-%d' % (view.get('id'), row.get('key'), index)
+        bid = bid.replace(':', '-')
+        result = _cmd_place_balloon(doc, {
+            'id': bid, 'sheet': sheet_id, 'bom_key': row.get('key'),
+            'x': x, 'y': y, 'ax': ax, 'ay': ay, 'view': view.get('id'), 'auto': True,
+        })
+        made.append(result)
+    mag_ids = []
+    for n, (x1, y1, x2, y2) in enumerate(lines):
+        mid = 'mag-%s-%d' % (view.get('id'), n)
+        _upsert(doc, sheet_id, 'magline', mid, {
+            'x1': x1, 'y1': y1, 'x2': x2, 'y2': y2, 'view': view.get('id'), 'auto': True,
+        }, ('x1', 'y1', 'x2', 'y2'))
+        mag_ids.append(mid)
+    return {
+        'view': view.get('id'),
+        'layout': pattern,
+        'reverse': reverse,
+        'ignore_multiple': ignore,
+        'magnetic': magnetic,
+        'balloons': made,
+        'lines': mag_ids,
+    }
 
 
 def _cmd_move_balloon(doc, args):
@@ -1160,6 +1290,8 @@ COMMANDS = {
     'renumber_bom': _cmd_renumber,
     'load_bom_csv': _cmd_load_csv,
     'load_bom_components': _cmd_load_components,
+    'bom_from_components': _cmd_bom_from_components,
+    'auto_balloons': _cmd_auto_balloons,
     'place_bom': _cmd_place_bom,
     'move_bom': _cmd_move_bom,
     'remove_bom': _cmd_remove_bom,
@@ -1235,6 +1367,8 @@ remove_bom_row = _bind('remove_bom_row')
 renumber_bom = _bind('renumber_bom')
 load_bom_csv = _bind('load_bom_csv')
 load_bom_components = _bind('load_bom_components')
+bom_from_components = _bind('bom_from_components')
+auto_balloons = _bind('auto_balloons')
 place_bom = _bind('place_bom')
 move_bom = _bind('move_bom')
 remove_bom = _bind('remove_bom')

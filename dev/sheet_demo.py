@@ -83,7 +83,7 @@ class Demo(object):
             args.setdefault('y', y)
             args.setdefault('w', w)
             args.setdefault('h', h)
-        elif name in ('set_view_scale', 'set_sheet_scale', 'set_view_options'):
+        elif name in ('set_view_scale', 'set_sheet_scale', 'set_view_options', 'move_balloon'):
             pass
         elif name != 'dismiss_suggestion':
             raise ValueError('unknown command %r' % name)

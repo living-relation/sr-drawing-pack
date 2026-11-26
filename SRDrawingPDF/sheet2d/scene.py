@@ -35,7 +35,7 @@ def build_scene(document, sheet_id=None, selected_key=None):
     selection = _selection(doc, selected_key)
     marks = _marks(selection, sheet.get('id'))
     marks['boxes'] = _mark_boxes(sheet, marks)
-    svg = render_svg(canvas.items, width, height, pieces, marks)
+    svg = render_svg(canvas.items, width, height, pieces, marks, _balloon_hits(sheet))
     dims, callouts = _readouts(doc, sheet)
     return {
         'sheet': {'id': sheet.get('id'), 'name': sheet.get('name') or '', 'width': width, 'height': height},
@@ -127,7 +127,7 @@ def piece_geometry(doc, sheet_id):
     return out
 
 
-def render_svg(items, width, height, pieces=None, marks=None):
+def render_svg(items, width, height, pieces=None, marks=None, balloons=None):
     """SVG text for one sheet. `items` are the canvas primitives, unchanged."""
     pieces = pieces or []
     marks = marks or {}
@@ -162,6 +162,8 @@ def render_svg(items, width, height, pieces=None, marks=None):
     for box in _over_marks(pieces, marks):
         parts.append(box if isinstance(box, str) else _box(
             box, height, 'fill="none" stroke="%s" stroke-width="1.1" data-highlight="%s"' % (MARK, _esc(box.get('id') or ''))))
+    for el in balloons or []:
+        parts.append(_balloon_hit(el, height))
     for piece in pieces:
         head = piece['header']
         parts.append(_hit(head, height, {
@@ -383,6 +385,19 @@ def _box(box, height, attrs):
     w = box['x1'] - box['x0']
     h = box['y1'] - box['y0']
     return '<rect x="%.3f" y="%.3f" width="%.3f" height="%.3f" %s/>' % (x, y, w, h, attrs)
+
+
+def _balloon_hits(sheet):
+    return [el for el in (sheet.get('elements') or []) if el.get('type') == 'balloon']
+
+
+def _balloon_hit(el, height):
+    r = BALLOON_R + 1.2
+    return (
+        '<circle cx="%.3f" cy="%.3f" r="%.3f" fill="#000000" fill-opacity="0" stroke="none" '
+        'data-balloon="%s" data-x="%.4f" data-y="%.4f" data-ax="%.4f" data-ay="%.4f"/>'
+        % (float(el['x']), height - float(el['y']), r, _esc(el.get('id') or ''),
+           float(el['x']), float(el['y']), float(el['ax']), float(el['ay'])))
 
 
 def _hit(box, height, data):

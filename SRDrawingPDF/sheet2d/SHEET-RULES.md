@@ -54,7 +54,14 @@ as a yellow exclamation mark in the status bar, and the engineer decides.
 
 A BOM anchors at the bottom-left corner of the frame by default, or at the
 right corner directly above the title block. Any BOM piece can be split above
-or below a row; each piece keeps its header and can be moved.
+or below a row; each piece keeps its header and can be moved. Built from the
+assembly component list, each part is one row (item, qty, part number,
+description). A missing part number or description stays blank.
+
+Balloons with leaders go on one view, the trimetric view unless another is
+chosen. The number in the balloon is the BOM item number. They are placed
+around that view so they do not overlap, and each one can be dragged. The
+leader end stays on the part.
 
 When adding any drawing item, give the user the options the SOLIDWORKS
 drawing editor gives for it (its PropertyManager or table menu). SOLIDWORKS
