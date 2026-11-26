@@ -207,17 +207,28 @@ def real_views(fusion=None, step=None, title=None, sheet_scale=None, view_scales
     return build, parts
 
 
+def load_drawing(path):
+    """An editor session whose drawing is a JSON file."""
+    def build():
+        with open(path, encoding='utf-8') as handle:
+            return json.load(handle)
+    return Demo(build)
+
+
 def main(argv):
     import argparse
     ap = argparse.ArgumentParser(description='Local sheet editor')
     ap.add_argument('port', nargs='?', type=int, default=8765)
     ap.add_argument('--fusion', help='folder written by fusion_read.py')
     ap.add_argument('--step', help='STEP file (needs OCP)')
+    ap.add_argument('--drawing', help='drawing JSON to open')
     ap.add_argument('--title')
     args = ap.parse_args(argv[1:])
     port = args.port
     demo = None
-    if args.fusion or args.step:
+    if args.drawing:
+        demo = load_drawing(args.drawing)
+    elif args.fusion or args.step:
         build, parts = real_views(args.fusion, args.step, args.title)
         demo = Demo(build, parts)
     httpd = serve(port=port, demo=demo)
