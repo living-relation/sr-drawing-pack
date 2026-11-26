@@ -73,3 +73,18 @@ def test_the_socket_circle_is_left_out_of_a_screw_but_not_a_connector(tmp_path):
     assert any(line['r'] > 4.0 for line in usb)
     assert screw and all(line['r'] > 3.5 for line in screw)
     assert any(line['r'] > 4.0 for line in screw)
+
+
+def _radii(view):
+    return sorted(round(line['r'], 2) for line in view['lines'] if line['kind'] in ('circle', 'arc') and line['r'] < 30)
+
+
+def test_quick_outline_matches_exact_on_a_screw(tmp_path):
+    step = tmp_path / 'wide.step'
+    plate = BRepPrimAPI_MakeBox(gp_Pnt(-40, -40, -80), gp_Pnt(500, 300, 0)).Shape()
+    _write_named(str(step), [(_holed(0), 'M3 SHCS'), (plate, 'plate')])
+    engine = get_engine('xq')
+    exact, _t = engine.project_views(('top',), step=str(step), mode='exact')
+    quick, _t = engine.project_views(('top',), step=str(step), mode='quick')
+    assert _radii(exact['top']) == _radii(quick['top'])
+    assert _radii(quick['top']) and all(r > 3.5 for r in _radii(quick['top']))
