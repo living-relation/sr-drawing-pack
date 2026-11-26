@@ -133,6 +133,9 @@ def _pts(line):
             lx, ly = rx * math.cos(t), ry * math.sin(t)
             out.append((cx + c * lx - s * ly, cy + s * lx + c * ly))
         return out
+    if line.get('kind') == 'arc':
+        from sheet2d.engines.curves import arc_points
+        return arc_points(line, 24)
     return list(line.get('pts') or [])
 
 
