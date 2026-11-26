@@ -353,21 +353,36 @@ def analytic_curve(origin, xdir, ydir, radius, u0, u1, right, up, style, partial
     return {'kind': 'poly', 'pts': pts, 'style': style, 'closed': closed, 'analytic': True}
 
 
-def fit_chain(pts, style, ellipses=False, tol=0.05):
-    """A circle, an ellipse, or a polyline. Hidden styles are not used."""
+def _fits_view(item, max_r):
+    """A circle or arc bigger than the view is not a real edge."""
+    if not item or not max_r:
+        return item
+    if item.get('kind') in ('circle', 'arc') and item['r'] > max_r:
+        return None
+    if item.get('kind') == 'ellipse' and max(item['rx'], item['ry']) > max_r:
+        return None
+    return item
+
+
+def fit_chain(pts, style, ellipses=False, tol=0.05, max_r=None):
+    """A circle, an ellipse, or a polyline. Hidden styles are not used.
+
+    max_r is the view's long side. A fitted circle or arc larger than that
+    stays the polyline it was fitted from.
+    """
     if style in ('hid', 'hidden', 'dash'):
         return None
     style = 'thin' if style in ('tan', 'thin') else 'ctr' if style == 'ctr' else 'vis'
-    circ = fit_circle(pts, tol)
+    circ = _fits_view(fit_circle(pts, tol), max_r)
     if circ:
         circ['style'] = style
         return circ
-    arc = fit_arc(pts, tol)
+    arc = _fits_view(fit_arc(pts, tol), max_r)
     if arc:
         arc['style'] = style
         return arc
     if ellipses:
-        ell = fit_ellipse(pts, tol)
+        ell = _fits_view(fit_ellipse(pts, tol), max_r)
         if ell:
             ell['style'] = style
             return ell

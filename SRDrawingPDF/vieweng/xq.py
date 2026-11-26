@@ -272,7 +272,8 @@ def _render(step, names, workers=None, mode='exact', tangents=True):
         lines = _view_lines(
             V, F, CN, use_points, use_counts, use_tangent, use_analytic,
             c, r, u, zb, to_win, dz, px, defl, name, fit,
-            show_tangents=_show_tangents(name, tangents))
+            show_tangents=_show_tangents(name, tangents),
+            span=max(ext_r, ext_u))
         us = [p[0] for line in lines for p in _pts_of(line)]
         vs = [p[1] for line in lines for p in _pts_of(line)]
         if not us:
@@ -1155,7 +1156,7 @@ def _runs(points2d, keep, counts):
     return out
 
 
-def _view_lines(verts, faces, corners, points, counts, tangent, analytic, toward, right, up, image, to_win, dz, px, defl, name, fit, show_tangents=True):
+def _view_lines(verts, faces, corners, points, counts, tangent, analytic, toward, right, up, image, to_win, dz, px, defl, name, fit, show_tangents=True, span=None):
     import numpy as np
     lines = []
     if len(counts):
@@ -1163,7 +1164,7 @@ def _view_lines(verts, faces, corners, points, counts, tangent, analytic, toward
         keep = _visible(points, image, to_win, tol)
         flat = np.c_[points @ right, points @ up]
         lines.extend(_analytic_lines(
-            flat, keep, counts, tangent, analytic, right, up, px, show_tangents))
+            flat, keep, counts, tangent, analytic, right, up, px, show_tangents, span))
         for flag, style in ((False, 'vis'), (True, 'thin')):
             if flag and not show_tangents:
                 continue
@@ -1177,7 +1178,7 @@ def _view_lines(verts, faces, corners, points, counts, tangent, analytic, toward
             for poly in bridged:
                 if len(poly) < 2:
                     continue
-                item = fit_chain(poly, style, ellipses=(fit and name == 'trimetric' and style == 'vis'))
+                item = fit_chain(poly, style, ellipses=(fit and name == 'trimetric' and style == 'vis'), max_r=span)
                 if item and _length(item) >= 1.5 * px:
                     lines.append(item)
     sil = _silhouettes(verts, faces, corners, toward)
@@ -1196,13 +1197,24 @@ def _view_lines(verts, faces, corners, points, counts, tangent, analytic, toward
             flat = np.c_[dense @ right, dense @ up]
             for run in _runs(flat, vis, np.array([len(dense)])):
                 poly = [(float(x), float(y)) for x, y in run]
-                item = fit_chain(poly, 'vis', ellipses=(fit and name == 'trimetric'))
+                item = fit_chain(poly, 'vis', ellipses=(fit and name == 'trimetric'), max_r=span)
                 if item and _length(item) >= 1.5 * px:
                     lines.append(item)
     return lines
 
 
-def _analytic_lines(flat, keep, counts, tangent, analytic, right, up, px, show_tangents=True):
+def _curve_too_wide(item, span):
+    """True when a circle, arc, or ellipse is bigger than the view."""
+    if not item or not span:
+        return False
+    if item.get('kind') in ('circle', 'arc'):
+        return item['r'] > span
+    if item.get('kind') == 'ellipse':
+        return max(item['rx'], item['ry']) > span
+    return False
+
+
+def _analytic_lines(flat, keep, counts, tangent, analytic, right, up, px, show_tangents=True, span=None):
     """Circles and ellipses from the real edge. Those edges are then not fitted from samples."""
     import numpy as np
     if not analytic:
@@ -1230,6 +1242,8 @@ def _analytic_lines(flat, keep, counts, tangent, analytic, right, up, px, show_t
         style = 'thin' if tangent[i] else 'vis'
         for u0, u1 in spans_u:
             item = analytic_curve(info['o'], info['x'], info['y'], info['r'], u0, u1, right, up, style, partial=not full)
+            if _curve_too_wide(item, span):
+                item = None
             if item and _length(item) >= 1.5 * px:
                 out.append(item)
         keep[a:b] = False
