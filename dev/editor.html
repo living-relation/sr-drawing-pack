@@ -108,6 +108,10 @@
     <h2>Scale</h2>
     <div id="scales"></div>
     <ul id="layout-problems" class="bad-list"></ul>
+    <h2>View quality</h2>
+    <div class="opt-row">
+      <label>Preset <select id="preset"></select></label>
+    </div>
     <h2>Small lines</h2>
     <div class="opt-row">
       <label>Min line <input id="min-line" type="number" min="0" step="0.05"> mm</label>
@@ -251,6 +255,15 @@ function scales() {
   });
   document.getElementById('min-line').value = v.min_line_mm;
   document.getElementById('small-feature').value = v.small_feature_mm;
+  var preset = document.getElementById('preset');
+  preset.innerHTML = '';
+  (v.presets || ['draft', 'hq']).forEach(function (name) {
+    var o = document.createElement('option');
+    o.value = name;
+    o.textContent = name === 'hq' ? 'HQ' : 'Draft';
+    preset.appendChild(o);
+  });
+  preset.value = v.preset || 'draft';
 }
 
 function tabs() {
@@ -433,6 +446,9 @@ function onUp(e) {
 }
 
 document.getElementById('reset').addEventListener('click', function () { run('reset'); });
+document.getElementById('preset').addEventListener('change', function () {
+  run('set_view_preset', {preset: document.getElementById('preset').value});
+});
 document.getElementById('apply-lines').addEventListener('click', function () {
   run('set_view_options', {
     min_line_mm: document.getElementById('min-line').value,

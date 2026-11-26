@@ -230,6 +230,19 @@ The tolerance box does not add an edge-break line. Put that text in the `tol` fi
 
 Sheet rules that this package draws are in `SRDrawingPDF/sheet2d/SHEET-RULES.md`.
 
+## View engines
+
+Lines come from exact model edges. A mesh is only the depth picture that decides which of those edges are visible. The old engine that drew the mesh's own edges is not a choice.
+
+The editor offers two presets. The map is provisional until `dev/compare_engines.py` has been run on real models:
+
+| Preset | What it asks for |
+| --- | --- |
+| Draft | XQ Quick Look: a coarser depth picture, no arc fitting |
+| HQ | XQ Exact Lines: full depth picture, arcs and trimetric ellipses |
+
+`xq` needs OCP, VTK and numpy, reads a STEP file, and caches the shape by its hash. `fusion` only runs inside Fusion; anywhere else it says so and does not wait or create a drawing. Both keep visible edges only (no dashed back edges). A tangent edge is a thin solid line. Short gaps in a visible edge are closed. Small features keep their outline, and lines shorter than the minimum are dropped.
+
 ## View generation
 
 `sheet2d.project` builds drawing views from part shapes. The view set is front, top, right and trimetric. Each view keeps only the visible edges. Hidden edges are not returned. A round part is a circle or a silhouette plus a centre mark, not the edges of its mesh. `time_view_set` reports seconds per view. The benchmark assembly has several hundred parts, and the four views together must finish in 120 seconds.

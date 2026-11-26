@@ -76,6 +76,8 @@ def _views(doc, sheet):
         'views': rows,
         'min_line_mm': min_line_mm(doc.properties),
         'small_feature_mm': small_feature_mm(doc.properties),
+        'preset': doc.properties.get('view_preset') or 'draft',
+        'presets': ['draft', 'hq'],
     }
 
 

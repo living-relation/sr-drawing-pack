@@ -95,6 +95,7 @@ COMMAND_DOCS = {
     'set_view_scale': 'Give one view its own scale (\'1:30\', \'2:1\', any ratio) or \'sheet\' to follow the sheet. Generated views are laid out again.',
     'set_sheet_scale': 'Set the sheet scale (title block). Views without their own scale follow it. Generated views are laid out again.',
     'set_view_options': 'Small-line rules for generated views: min_line_mm (smallest line on paper) and small_feature_mm (smaller features keep only their outline). 0 turns one off.',
+    'set_view_preset': 'Draft or HQ. Which engine each preset uses is provisional until the bake-off.',
     'add_detail_view': 'Engineer-only: add or edit a detail view (SOLIDWORKS Detail View options). Never added automatically.',
     'suggest_details': 'Flag places that may want a detail view (section features, crowded small features). Changes no sheet.',
     'add_suggestion': 'Record one suggestion from an outside AI pass. Changes no sheet.',
@@ -922,6 +923,16 @@ def _cmd_set_view_options(doc, args):
     return out
 
 
+def _cmd_set_view_preset(doc, args):
+    from .engines import PRESETS, engine_for_preset
+    preset = (args.get('preset') or '').strip().lower()
+    if preset not in PRESETS:
+        raise ValueError('preset must be one of %s' % ', '.join(PRESETS))
+    engine, mode, note = engine_for_preset(preset)
+    doc.properties['view_preset'] = preset
+    return {'preset': preset, 'engine': engine.name, 'mode': mode, 'note': note}
+
+
 def _cmd_set_hole_tolerance(doc, args):
     if args.get('clear'):
         doc.hole_tol = None
@@ -1312,6 +1323,7 @@ COMMANDS = {
     'set_view_scale': _cmd_set_view_scale,
     'set_sheet_scale': _cmd_set_sheet_scale,
     'set_view_options': _cmd_set_view_options,
+    'set_view_preset': _cmd_set_view_preset,
     'move_view': _cmd_move_view,
     'delete_view': _cmd_delete_view,
     'view_caption': _cmd_view_caption,
@@ -1392,6 +1404,7 @@ view_caption = _bind('view_caption')
 set_view_scale = _bind('set_view_scale')
 set_sheet_scale = _bind('set_sheet_scale')
 set_view_options = _bind('set_view_options')
+set_view_preset = _bind('set_view_preset')
 add_detail_view = _bind('add_detail_view')
 suggest_details = _bind('suggest_details')
 add_suggestion = _bind('add_suggestion')
