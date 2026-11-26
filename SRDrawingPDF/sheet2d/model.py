@@ -33,7 +33,7 @@ BUILTIN_SIZES = {
 }
 
 # Drawing-wide view settings kept with the title fields (see sheet2d.viewsheet).
-VIEW_OPTIONS = ('min_line_mm', 'small_feature_mm')
+VIEW_OPTIONS = ('min_line_mm', 'small_feature_mm', 'view_preset')
 TITLE_FIELDS = (
     'project', 'title', 'pn', 'rev', 'material', 'scale', 'units', 'date', 'drawn', 'source', 'tol',
 )

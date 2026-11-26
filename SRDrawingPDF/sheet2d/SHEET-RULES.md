@@ -21,10 +21,13 @@ balloon. Note flags store the note key the same way.
 The tolerance block does not add an edge-break line unless the drawing
 supplies that text itself.
 
-Views are drawn from the part shapes with the fast method: one depth
-buffer, visible feature edges only, joined into continuous lines. The exact
-edge-against-every-face method is not used for the view set. Curved parts
-are silhouettes, rims and centre marks, never a net of triangle edges.
+Views are drawn from exact model edges. A mesh is only the depth picture
+used to decide which edges are visible; the mesh's own edges are not drawn.
+Draft asks for the quicker exact-edge pass. HQ asks for the full one.
+The choice is provisional until the engines have been compared. Every
+engine keeps visible feature edges only, joined into continuous lines.
+Curved parts are silhouettes, rims and centre marks, never a net of
+triangle edges.
 Centre marks and centre lines stay. Tangent rims are thin solid lines.
 No view draws a hidden line.
 

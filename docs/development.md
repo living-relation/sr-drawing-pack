@@ -24,6 +24,7 @@ Load the `SRDrawingPDF` folder into Fusion as described in [Install](install.md)
 - `SRDrawingPDF/generate_sheet.py` — builds the sheet from that folder and opens the editor. It does not run inside Fusion.
 - `SRDrawingPDF/sheet_command.py` — the SR Sheet button. It only queues those short steps.
 - `dev/fusion_sheet.py` — four real views on a size B sheet at one standard scale, to PDF, from a Fusion dump or a STEP file. Prints the times.
+- `dev/compare_engines.py` — runs each view engine on one STEP file and writes `engines.png` plus `engines.json` (read time and view time, cold and cached).
 - `tools/check.py` — secret/path scan plus pytest. CI runs the same command.
 
 ## Coding notes

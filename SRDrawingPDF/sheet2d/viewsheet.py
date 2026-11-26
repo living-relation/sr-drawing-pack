@@ -373,7 +373,7 @@ def reproject_sharper(parts, doc, sheet_id=None, px_per_mm=PX_PER_MM, factor=1.2
 
 
 def build_view_sheet(parts, title, key='asm', source='', date='', draft=1, px_per_mm=PX_PER_MM,
-                     sheet_scale=None, view_scales=None):
+                     sheet_scale=None, view_scales=None, preset=None):
     """(drawing dict, report). Four views of `parts` on one size B sheet.
 
     Default scales come from auto_scales. sheet_scale ('1:30') sets the sheet
@@ -392,6 +392,8 @@ def build_view_sheet(parts, title, key='asm', source='', date='', draft=1, px_pe
         return out['result']
 
     run('add_sheet', id='s1', name='Sheet 1')
+    if preset:
+        run('set_view_preset', preset=preset)
     for field, value in (('title', title), ('material', 'SEE BOM'), ('units', 'mm'),
                          ('source', source), ('date', date)):
         if value:
