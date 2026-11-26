@@ -131,6 +131,8 @@ def run(context, pdf_path=None):
         cd.commandCreated.add(h)
         _handlers.append(h)
         panels.add_command(ui, cd, CMD_ID)
+        import sheet_command
+        sheet_command.install(ui)
     except Exception:
         _app_ui().messageBox('SR Drawing PDF run failed:\n' + traceback.format_exc())
 
@@ -145,7 +147,10 @@ def _remove_ui(ui):
 def stop(context):
     try:
         _stop_listening()
-        _remove_ui(_app_ui())
+        ui = _app_ui()
+        _remove_ui(ui)
+        import sheet_command
+        sheet_command.stop(ui)
         _handlers.clear()
     except Exception:
         pass

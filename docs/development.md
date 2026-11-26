@@ -20,6 +20,9 @@ Load the `SRDrawingPDF` folder into Fusion as described in [Install](install.md)
 - `dev/sheet_demo.py` — a local page for the sample sheet. It does not need Fusion.
 - `dev/time_views.py` — times front, top, right and trimetric views of a several-hundred-part assembly and writes a PNG. It does not need Fusion. The full set must finish in 120 seconds. Add `--step assembly.step` to time a real assembly exported from Fusion; that needs OCP (`pip install cadquery-ocp`) and reads it through `dev/step_mesh.py`. Keep STEP files outside this repo.
 - `SRDrawingPDF/fusion_read.py` — reads the open Fusion design in short steps (visible bodies, placements, meshes) into a folder. See [Sheet editor](sheet-editor.md#real-views-from-the-open-fusion-design).
+- `SRDrawingPDF/sheet_job.py` — one read step at a time, each under 5 seconds, no sleeping. When the read is done it starts `generate_sheet.py` in another process.
+- `SRDrawingPDF/generate_sheet.py` — builds the sheet from that folder and opens the editor. It does not run inside Fusion.
+- `SRDrawingPDF/sheet_command.py` — the SR Sheet button. It only queues those short steps.
 - `dev/fusion_sheet.py` — four real views on a size B sheet at one standard scale, to PDF, from a Fusion dump or a STEP file. Prints the times.
 - `tools/check.py` — secret/path scan plus pytest. CI runs the same command.
 
@@ -38,7 +41,7 @@ From the repo folder, in a terminal:
 python dev/sheet_demo.py
 ```
 
-Open http://127.0.0.1:8765/ . The page draws the sample sheet. To show real views instead, add `--fusion DUMP_FOLDER` (written by `fusion_read.py`) or `--step assembly.step` (needs OCP). Reset goes back to those views. The Scale panel sets the sheet scale and each view's scale (standard list or Custom); views are laid out again and a view at another scale prints its SCALE caption. Small lines sets the minimum line and the small-feature size. Click a BOM row to highlight that part and show its thumbnail. Drag the top band of a BOM piece to move it. Drag a balloon to move it; the leader stays where it was. Split above or below the selected row. The yellow ! in the status bar is an open detail-view suggestion; Accept adds the view.
+Open http://127.0.0.1:8765/ . Add `--drawing drawing.json` to open a sheet written by `generate_sheet.py` instead of the sample. The page draws the sample sheet. To show real views instead, add `--fusion DUMP_FOLDER` (written by `fusion_read.py`) or `--step assembly.step` (needs OCP). Reset goes back to those views. The Scale panel sets the sheet scale and each view's scale (standard list or Custom); views are laid out again and a view at another scale prints its SCALE caption. Small lines sets the minimum line and the small-feature size. Click a BOM row to highlight that part and show its thumbnail. Drag the top band of a BOM piece to move it. Drag a balloon to move it; the leader stays where it was. Split above or below the selected row. The yellow ! in the status bar is an open detail-view suggestion; Accept adds the view.
 
 ## Tests
 

@@ -39,19 +39,26 @@ def _arg(args, flag):
 
 
 def load_parts(fusion=None, step=None, hardware_outline=True):
-    """(parts, title, source, seconds)."""
+    """(parts, title, source, seconds, company, project).
+
+    Company and project come from the Fusion read. A STEP file has neither,
+    so those two are blank. The file name is the drawing title, not the project.
+    """
     t0 = time.perf_counter()
+    company = project = ''
     if fusion:
         from sheet2d.meshparts import load_fusion_dump
         parts, info = load_fusion_dump(fusion, hardware_outline=hardware_outline)
         title = info['document']
         source = '%s (Fusion)' % info['document']
+        company = info.get('company') or ''
+        project = info.get('project') or ''
     else:
         from step_mesh import load_step
         parts, info = load_step(step)
         title = os.path.splitext(os.path.basename(step))[0]
         source = os.path.basename(step)
-    return parts, title, source, time.perf_counter() - t0
+    return parts, title, source, time.perf_counter() - t0, company, project
 
 
 def main(argv):
@@ -73,11 +80,16 @@ def main(argv):
     if len(args) != 1 or not (fusion or step):
         print(__doc__)
         return 2
-    parts, name, source, load_s = load_parts(fusion, step, outline)
+    parts, name, source, load_s, company, project = load_parts(fusion, step, outline)
     print('load %.2f s  parts %d' % (load_s, len(parts)))
     doc, report = build_view_sheet(parts, (title or name).upper(), source=source,
                                    date=datetime.date.today().isoformat(),
                                    sheet_scale=sheet_scale, view_scales=views)
+    from sheet2d.commands import execute
+    from sheet2d.settings import company_project
+    doc = execute(doc, 'set_title', {
+        'field': 'project', 'value': company_project(company, project),
+    })['document']
     if min_line is not None or small is not None:
         from sheet2d.commands import execute
         opts = {}

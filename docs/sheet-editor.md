@@ -24,6 +24,8 @@ The dict holds:
 
 Title fields are linked. `set_title` changes the document, and every sheet shows the new value on the next export. `SHEET` is `n OF m` from the sheet order. A sheet can set its own scale (sheet 2 of the sample uses `AS SHOWN`).
 
+COMPANY / PROJECT comes from the design when the design has a company name, a project name, or both (`Spark Robotic / Rig 4`). If the design has neither, the line is blank. The drawing's file name is not used as a stand-in, and the word PROJECT is not filled in. A project set in the environment (`DRAWING_PROJECT`) or in `local.toml` is still used when the design itself has no name.
+
 ## Commands
 
 Call `execute(document, name, args)`. `args` is a dict. The result is always:
@@ -250,10 +252,14 @@ The STEP read time is printed but not counted, because the add-in would take the
 
 `SRDrawingPDF/fusion_read.py` reads the open design without exporting anything. It only reads; nothing in the design changes. It works in short steps so no single Fusion call runs long:
 
-- `list_step(out_dir)` writes `occurrences.json`: each visible body once (by component), and every visible placement with its 4x4 transform. Hidden bodies and hidden occurrences are left out.
+- `list_step(out_dir)` writes `occurrences.json`: each visible body once (by component), and every visible placement with its 4x4 transform. Hidden bodies and hidden occurrences are left out. It also writes `company` and `project` when the design has those names, and leaves them blank when it does not.
 - `mesh_step(out_dir, start, budget=3.0, quality='low')` meshes the next unique bodies until about `budget` seconds have passed, and writes one `mesh_NNNNN.bin`. Call it again with the returned `next` until `done` is true. A body used many times is meshed once. `quality` is `'low'`, `'normal'` or `'high'`; `'normal'` gave clean lines at 1:3.
 
 Run each step as its own short Fusion script (for example through the Fusion MCP), with a pause between calls. The script loads `fusion_read.py` by file path and calls one step. It never sleeps or polls inside Fusion. Do not call the add-in's `run()` or `stop()`.
+
+The **SR Sheet** button does this from inside Fusion. Each step is its own event and stays under 5 seconds. Mesh chunks use a 3 second budget. When the read is finished, Fusion starts `generate_sheet.py` in another process and does not wait. That process writes `drawing.json` and `sheet.pdf` in the temp folder and opens the editor (`python dev/sheet_demo.py --drawing drawing.json`). Fusion's window is free the whole time the sheet is built.
+
+With no meshes, the sheet still has front, top, right and trimetric frames, a parts list from the component names (part number blank when the read has none), balloons on the trimetric view, and the company / project line from the design. With meshes, the same sheet gets view lines from the current builder.
 
 The drawing work runs outside Fusion:
 
