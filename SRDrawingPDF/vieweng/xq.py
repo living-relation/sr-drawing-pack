@@ -43,7 +43,8 @@ class XqEngine(object):
         mode = opts.get('mode') or 'exact'
         if mode not in ('exact', 'quick'):
             raise ValueError('XQ mode must be exact or quick')
-        return _render(step, tuple(names), workers=opts.get('workers'), mode=mode)
+        return _render(step, tuple(names), workers=opts.get('workers'), mode=mode,
+                       tangents=opts.get('tangents', True))
 
 
 def _imports(name):
@@ -92,7 +93,18 @@ def load_shape(step):
     return shape, time.perf_counter() - t0, True
 
 
-def _render(step, names, workers=None, mode='exact'):
+def _show_tangents(name, tangents):
+    """Tangent edges are drawn unless this view asks to hide them."""
+    if tangents is None or tangents is True:
+        return True
+    if tangents is False:
+        return False
+    if isinstance(tangents, dict):
+        return bool(tangents.get(name, True))
+    raise ValueError('tangents must be true, false, or a map of view name to true or false')
+
+
+def _render(step, names, workers=None, mode='exact', tangents=True):
     import time
     import numpy as np
     from sheet2d.project import _basis
@@ -141,7 +153,8 @@ def _render(step, names, workers=None, mode='exact'):
             points, counts, tangent, analytic, hardware, r, u)
         lines = _view_lines(
             V, F, CN, use_points, use_counts, use_tangent, use_analytic,
-            c, r, u, zb, to_win, dz, px, defl, name, fit)
+            c, r, u, zb, to_win, dz, px, defl, name, fit,
+            show_tangents=_show_tangents(name, tangents))
         us = [p[0] for line in lines for p in _pts_of(line)]
         vs = [p[1] for line in lines for p in _pts_of(line)]
         if not us:
@@ -845,15 +858,18 @@ def _runs(points2d, keep, counts):
     return out
 
 
-def _view_lines(verts, faces, corners, points, counts, tangent, analytic, toward, right, up, image, to_win, dz, px, defl, name, fit):
+def _view_lines(verts, faces, corners, points, counts, tangent, analytic, toward, right, up, image, to_win, dz, px, defl, name, fit, show_tangents=True):
     import numpy as np
     lines = []
     if len(counts):
         tol = dz * (2.5 * px + defl)
         keep = _visible(points, image, to_win, tol)
         flat = np.c_[points @ right, points @ up]
-        lines.extend(_analytic_lines(flat, keep, counts, tangent, analytic, right, up, px))
+        lines.extend(_analytic_lines(
+            flat, keep, counts, tangent, analytic, right, up, px, show_tangents))
         for flag, style in ((False, 'vis'), (True, 'thin')):
+            if flag and not show_tangents:
+                continue
             mask = tangent == flag
             if not mask.any():
                 continue
@@ -889,7 +905,7 @@ def _view_lines(verts, faces, corners, points, counts, tangent, analytic, toward
     return lines
 
 
-def _analytic_lines(flat, keep, counts, tangent, analytic, right, up, px):
+def _analytic_lines(flat, keep, counts, tangent, analytic, right, up, px, show_tangents=True):
     """Circles and ellipses from the real edge. Those edges are then not fitted from samples."""
     import numpy as np
     if not analytic:
@@ -898,6 +914,10 @@ def _analytic_lines(flat, keep, counts, tangent, analytic, right, up, px):
     out = []
     for i, info in enumerate(analytic):
         if not info:
+            continue
+        if tangent[i] and not show_tangents:
+            a, b = int(spans[i]), int(spans[i + 1])
+            keep[a:b] = False
             continue
         a, b = int(spans[i]), int(spans[i + 1])
         visible = keep[a:b]
