@@ -722,6 +722,10 @@ Proposals from the coordinator chat for ADR-056 and ADR-057. None is decided unt
 
 Open questions (full text):
 
+- D2 Plan the full process before building more features: a) yes, approve one steps 1-9 lifecycle section in SPEC first (rec) · b) keep building features and plan later
+- D3 Build in four parallel streams with one agent each: a) yes (rec) · b) one stream at a time
+- D4 Vault work (S4) in the EasyPDM fork: a) agents work in the EasyPDM fork on branches and PRs, same rules as here (rec) · b) only Daniel's sparkCAD sessions touch it
+
 - D1 Where part numbers are made (ADR-019 says the vault hands them out; Daniel wants them in Fusion, where the BOM is made, and the title block must match): a) a Fusion "Next number" button takes the next number from the vault counter and writes it into the Fusion part number; drawing title block and BOM read it from Fusion; the vault checks it on upload (rec) · b) engineers type numbers in Fusion by a format rule; the vault only checks format and duplicates on upload · c) the vault assigns at upload and the drawing is re-exported
 - C8 Part number format: a) PRT / SUB / ASY / CBL / WIR-####, plus MFR and CUS (rec) · b) one plain counter for everything
 - C7 Editable drawing file saved with every drawing and stored in the vault: a) yes (rec) · b) no, regenerate each time
@@ -733,3 +737,34 @@ Open questions (full text):
 - B9 What to build first: a) more sheets, first angle, detail views, wireframe (rec) · b) section views first · c) sub-assembly visibility and exploded views first
 - C2 Exploded views: a) add exploded positions to the data file the Fusion export writes (rec) · b) export a second STEP of the exploded model · c) skip for now
 - C1 (hidden lines) is withdrawn: ADR-033 already says never.
+
+## Design lifecycle: what is decided and built (2026-11-25)
+
+Status of each step from Fusion model to a new rev, as of 2026-11-25. Proposals are not decisions.
+
+| Step | Decided | Built |
+|---|---|---|
+| 1. Model in Fusion, part numbers added | open (D1) | no |
+| 2. "Make drawing" in Fusion: STEP + sr-export `bom.json` together | ADR-028, ADR-029 | sr-export yes; button no |
+| 3. Views generated (Exact Lines / Quick Look) | ADR-052 | test scripts, 1 sheet |
+| 4. Editor window opens for review and edits | ADR-024, ADR-037 | no |
+| 5. Drawing saved as an editable drawing file | open (C7) | no |
+| 6. Save to vault: pick outputs, pair maker files | what: ADR-056, ADR-057; how: open | no |
+| 7. Approval, rev letter, PDF stamped with ID, rev and date | outline: ADR-011, ADR-022, sparkCAD plan | no |
+| 8. Model changes, drawing finds out, new rev | not planned | no |
+| 9. Editing a drawing that is in the vault | not planned | no |
+
+- Researched, unsolved: dimensions that stay attached after a model change (STEP has no stable edge names; see "Annotations that survive a model change" above).
+- Proposal, steps 8-9: the drawing file keeps the fingerprint of its STEP. A change is found at two moments: opening the drawing in the editor from Fusion (the tool exports the open model, compares, shows "Model changed: update views?"), and upload to the vault (old drawing and maker files marked stale). No background pick-up: a Fusion model is only readable inside Fusion (ADR-028). A vault drawing is edited by check-out (lock), open in the editor with Fusion on the model, edit, check-in (new version); a model change gives a new rev letter at approval, a drawing-only fix a decimal (C to C.01).
+
+### Fast build plan (proposal, 2026-11-25)
+
+- One decision sheet: Daniel answers every open question in one pass (recs given), then one SPEC lifecycle section is approved as a whole.
+- Reuse before writing new code:
+  - Vault: the EasyPDM fork (`research655/EasyPDM`) already has numbers, rev letters, statuses, owner lock, BOM, used-in, a drawing per rev and backups: most of steps 7 and 9 and the contains / where-used queries. To add: maker-file roles, fingerprints, the release check, a number-counter call for the Fusion button.
+  - FreePDM fork (`research655/FreePDM`): reference for the check-in / check-out flow.
+  - Fusion: sr-export and sr-bom exist; add three add-in buttons: "Get part numbers", "Make drawing", "Save to vault".
+  - Engine: `xq_render.py` views and the handbuilt-cad sheet engine; add more sheets and the drawing file.
+  - Editor: start from sr-drawing-pdf's sheet editor (ADR-020) and add view frames.
+- Four work streams in parallel, each its own branch, PR and STATE file, planned with workstation-core wizard (tests first) and run by one agent each: S1 Fusion add-in, S2 engine (sheets, drawing file, fingerprints), S3 editor, S4 vault changes in the EasyPDM fork (Daniel's go needed: sparkCAD is read-only for agents here).
+- Tools already connected: the local Autodesk Fusion MCP and Fusion Compute (live add-in tests, under the fusion-desktop lock), Autodesk Product Help and Context7 (API docs). No new connector found that helps more.

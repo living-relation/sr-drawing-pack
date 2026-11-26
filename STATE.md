@@ -2,7 +2,7 @@
 Repo: sr-drawing-pack
 Branch: main
 Last_Verified_SHA: b4aa9fa
-Updated: 2026-11-25 -- Claude (claude.ai chat, coordinator)
+Updated: 2026-11-25 -- Claude (claude.ai chat, coordinator), lifecycle status logged
 
 ## Current Goal
 - Objective: Two render modes are done (ADR-051/052, PR #36). Now settling how drawings, maker files and part numbers link in sparkCAD (ADR-056, ADR-057) before the next features.
@@ -10,14 +10,14 @@ Updated: 2026-11-25 -- Claude (claude.ai chat, coordinator)
 
 ## Active Blocker
 - Status: BLOCKED
-- Detail: waiting on Daniel: D1, C8, C7, C9, C4, C5, C6, C3, B9, C2 (full text and recs: docs/RESEARCH.md "Vault linking: proposals and open questions").
+- Detail: waiting on Daniel: D2, D3, D4, D1, C8, C7, C9, C4, C5, C6, C3, B9, C2 (full text and recs: docs/RESEARCH.md "Vault linking: proposals and open questions").
 
 ## Next Single Step
-- [NEXT] Get Daniel's D1 answer (where part numbers are made), record it as an ADR, then the rest of the Active Blocker list.
+- [NEXT] Get Daniel's answers in one pass (D2 lifecycle plan first; docs/RESEARCH.md "Design lifecycle" and "Fast build plan"), record them as ADRs, then write the SPEC lifecycle section.
 
 ## Pointers
 - Branch_States: generated (state_manager.py branches)
 - Backlog: BACKLOG.md
 - Latest_ADR: ADR-057
 - Last_Cleanup: 2026-11-23 @ 818b35e
-- Question_Counter: D1
+- Question_Counter: D4
