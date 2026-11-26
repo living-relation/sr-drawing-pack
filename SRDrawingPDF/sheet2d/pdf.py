@@ -4,6 +4,7 @@ Page space is points, origin bottom left. Drawing space is millimetres.
 Characters the font does not have are reported, not silently replaced.
 """
 import math
+import zlib
 
 from .canvas import STY
 from .font import face
@@ -112,6 +113,9 @@ def _used_chars(sheets):
                 bucket.update(ch for ch in it[3] if ord(ch) >= 32)
             elif it[0] == 'wm':
                 bold.update(ch for ch in it[3] if ord(ch) >= 32)
+            elif it[0] == 'im':
+                from .logodraw import logo_chars
+                regular.update(ch for ch in logo_chars(it[5]) if ord(ch) >= 32)
     return regular, bold
 
 
@@ -128,6 +132,7 @@ def page_stream(sheet, missing=None, faces=None):
         _, x, y, text, h, ang = it
         _watermark(ops, text, h, x, y, ang, missing, faces)
     ops.append('0 g 0 G')
+    images = []
     for it in sheet.items:
         kind = it[0]
         if kind == 'wm':
@@ -148,9 +153,8 @@ def page_stream(sheet, missing=None, faces=None):
             ops.append('0 g')
             ops.append(_poly(it[1], True, 'f'))
         elif kind == 'im':
-            _, x, y, w, h, _data, _typ = it
-            ops.append('0.35 w')
-            ops.append('%.3f %.3f %.3f %.3f re S' % (x * MM, y * MM, w * MM, h * MM))
+            _, x, y, w, h, data, _typ = it
+            _draw_logo(ops, images, x, y, w, h, data, missing, faces)
         elif kind == 'tx':
             _, x, y, text, h, ha, va, rot, bold, bg, _layer = it
             if bg and text:
@@ -165,7 +169,7 @@ def page_stream(sheet, missing=None, faces=None):
                 ops.append('q 1 g %.3f %.3f %.3f %.3f re f Q' % (
                     (lx - 0.4) * MM, (y - 0.3) * MM, (tw + 0.8) * MM, (cap + 0.4) * MM))
             _draw_text(ops, x, y, text, h, ha, va, rot, bold, missing, faces)
-    return ('\n'.join(ops) + '\n').encode('ascii'), missing
+    return ('\n'.join(ops) + '\n').encode('ascii'), images
 
 
 class _Doc(object):
@@ -202,14 +206,25 @@ def write_pdf(sheets, path):
     bold = _font_objects(doc, faces[True], _subset_tag(bold_chars) + '+DejaVuSans-Bold')
     missing = []
     page_ids = []
-    # Parent id is assigned after the page objects. Reserve it by counting.
-    parent = len(doc.objs) + 2 * len(sheets) + 1
+    built = []
     for sh in sheets:
-        data, _miss = page_stream(sh, missing, faces)
+        data, images = page_stream(sh, missing, faces)
+        built.append((sh, data, images))
+    # The Pages object comes after every image, content stream, and page.
+    extra = sum(_image_slots(images) + 2 for _sh, _data, images in built)
+    parent = len(doc.objs) + extra + 1
+    for sh, data, images in built:
+        named = []
+        for name, iw, ih, rgb, alpha in images:
+            mask = None
+            if alpha is not None:
+                mask = doc.add(lambda n, a=alpha, w=iw, h=ih: _mask(n, w, h, a))
+            oid = doc.add(lambda n, w=iw, h=ih, rgb=rgb, mask=mask: _image(n, w, h, rgb, mask))
+            named.append((name, oid))
         cid = doc.add(lambda n, data=data: _stream(n, data))
         w_mm, h_mm = sh.page_size
-        pid = doc.add(lambda n, cid=cid, w=w_mm * MM, h=h_mm * MM: _page(
-            n, parent, cid, w, h, regular, bold))
+        pid = doc.add(lambda n, cid=cid, w=w_mm * MM, h=h_mm * MM, named=tuple(named): _page(
+            n, parent, cid, w, h, regular, bold, named))
         page_ids.append(pid)
     doc.add(lambda n: _pages(n, page_ids))
     doc.add(lambda n, pages=parent: _catalog(n, pages))
@@ -266,11 +281,91 @@ def _type0(num, name, cid_id, uni_id):
     ).encode('ascii')
 
 
-def _page(num, parent, content, w, h, regular, bold):
+def _image_slots(images):
+    return sum(2 if alpha is not None else 1 for _name, _w, _h, _rgb, alpha in images)
+
+
+def _draw_logo(ops, images, x, y, w, h, data, missing, faces):
+    """Draw the logo picture. PNG is an image. SVG is vectors and text."""
+    from .logodraw import prepare
+    logo = prepare(data, x, y, w, h)
+    ops.append('q %.3f %.3f %.3f %.3f re W n' % (x * MM, y * MM, w * MM, h * MM))
+    image = logo['image']
+    if image is not None:
+        iw, ih, rgb, alpha = image
+        name = 'Im%d' % (len(images) + 1)
+        images.append((name, iw, ih, rgb, alpha))
+        # The image's first row is the top row, which is the top of the logo box.
+        ops.append('q %.3f 0 0 %.3f %.3f %.3f cm /%s Do Q' % (
+            w * MM, h * MM, x * MM, y * MM, name))
+    for path in logo['paths']:
+        _logo_path(ops, path)
+    for tx, ty, text, cap, color, ha in logo['texts']:
+        ops.append('q %.3f %.3f %.3f rg' % color)
+        _draw_text(ops, tx, ty, text, cap, ha, 'bottom', 0, False, missing, faces)
+        ops.append('Q')
+    ops.append('Q')
+
+
+def _logo_path(ops, path):
+    parts = []
+    for seg in path['segs']:
+        if seg[0] == 'M':
+            parts.append('%.3f %.3f m' % (seg[1] * MM, seg[2] * MM))
+        elif seg[0] == 'L':
+            parts.append('%.3f %.3f l' % (seg[1] * MM, seg[2] * MM))
+        elif seg[0] == 'C':
+            parts.append('%.3f %.3f %.3f %.3f %.3f %.3f c' % tuple(v * MM for v in seg[1:]))
+        elif seg[0] == 'Z':
+            parts.append('h')
+    if not parts:
+        return
+    ops.append('q')
+    if path['fill']:
+        ops.append('%.3f %.3f %.3f rg' % path['fill'])
+    if path['stroke']:
+        ops.append('%.3f %.3f %.3f RG' % path['stroke'])
+        ops.append('%.3f w' % (path['width'] * MM))
+    if path['fill'] and path['stroke']:
+        op = 'B'
+    elif path['fill']:
+        op = 'f'
+    else:
+        op = 'S'
+    ops.append(' '.join(parts) + ' ' + op)
+    ops.append('Q')
+
+
+def _image(num, w, h, rgb, mask):
+    comp = zlib.compress(rgb)
+    mask_ref = '' if mask is None else ' /SMask %d 0 R' % mask
+    head = (
+        '%d 0 obj\n<< /Type /XObject /Subtype /Image /Width %d /Height %d '
+        '/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode '
+        '/Length %d%s >>\nstream\n' % (num, w, h, len(comp), mask_ref)
+    ).encode('ascii')
+    return head + comp + b'endstream\nendobj\n'
+
+
+def _mask(num, w, h, alpha):
+    comp = zlib.compress(alpha)
+    head = (
+        '%d 0 obj\n<< /Type /XObject /Subtype /Image /Width %d /Height %d '
+        '/ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode '
+        '/Length %d >>\nstream\n' % (num, w, h, len(comp))
+    ).encode('ascii')
+    return head + comp + b'endstream\nendobj\n'
+
+
+def _page(num, parent, content, w, h, regular, bold, images=()):
+    xobj = ''
+    if images:
+        refs = ' '.join('/%s %d 0 R' % pair for pair in images)
+        xobj = ' /XObject << %s >>' % refs
     return (
         '%d 0 obj\n<< /Type /Page /Parent %d 0 R /MediaBox [0 0 %.2f %.2f] '
-        '/Contents %d 0 R /Resources << /Font << /F1 %d 0 R /F2 %d 0 R >> >> >>\nendobj\n' % (
-            num, parent, w, h, content, regular, bold)
+        '/Contents %d 0 R /Resources << /Font << /F1 %d 0 R /F2 %d 0 R >>%s >> >>\nendobj\n' % (
+            num, parent, w, h, content, regular, bold, xobj)
     ).encode('ascii')
 
 

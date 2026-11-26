@@ -148,7 +148,8 @@ def set_logo(template, name, data, x=None, y=None, w=40, h=16):
         'name': name or 'logo',
         'data': data,
         'kind': kind,
-        'x': float(width - 10 - w if x is None else x),
+        # Top-left, inside the border. The top-right is the revision table.
+        'x': float(14 if x is None else x),
         'y': float(out['height'] - 10 - h if y is None else y),
         'w': float(w), 'h': float(h),
     }
