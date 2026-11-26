@@ -54,6 +54,15 @@
     cursor: pointer;
   }
   button:disabled { opacity: 0.45; cursor: default; }
+  .scale-row { display: grid; grid-template-columns: 82px 1fr; gap: 6px; align-items: center; margin: 4px 0; font-size: 13px; }
+  .scale-row select, .scale-row input, .opt-row input { font: inherit; font-size: 13px; padding: 2px 4px; }
+  .scale-row .custom { display: flex; gap: 4px; grid-column: 2; }
+  .scale-row .custom input { width: 80px; }
+  .scale-row .custom[hidden] { display: none; }
+  .scale-row.sheet { font-weight: 700; border-bottom: 1px solid #cfcabe; padding-bottom: 6px; margin-bottom: 6px; }
+  .opt-row { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-size: 13px; }
+  .opt-row input { width: 58px; }
+  .bad-list { color: #9a2a12; font-size: 12px; margin: 4px 0; padding-left: 16px; }
   button.primary { background: #1c1c1c; color: #fff; border-color: #1c1c1c; }
   #bang {
     width: 32px;
@@ -91,11 +100,20 @@
 <header>
   <h1>Sheet editor</h1>
   <div id="tabs"></div>
-  <button id="reset" type="button">Reset sample</button>
+  <button id="reset" type="button">Reset</button>
 </header>
 <main>
   <div id="sheet"></div>
   <aside>
+    <h2>Scale</h2>
+    <div id="scales"></div>
+    <ul id="layout-problems" class="bad-list"></ul>
+    <h2>Small lines</h2>
+    <div class="opt-row">
+      <label>Min line <input id="min-line" type="number" min="0" step="0.05"> mm</label>
+      <label>Outline under <input id="small-feature" type="number" min="0" step="0.5"> mm</label>
+      <button id="apply-lines" type="button">Apply</button>
+    </div>
     <h2>Part</h2>
     <img id="thumb" class="empty" alt="">
     <p id="part" class="muted">Click a BOM row.</p>
@@ -157,9 +175,82 @@ function draw() {
   svg.addEventListener('pointermove', onMove);
   svg.addEventListener('pointerup', onUp);
   tabs();
+  scales();
   part();
   list();
   status();
+}
+
+function scaleRow(title, current, own, onPick, withSheet, sheetScale) {
+  var row = document.createElement('div');
+  row.className = 'scale-row' + (withSheet ? '' : ' sheet');
+  var name = document.createElement('span');
+  name.textContent = title;
+  var sel = document.createElement('select');
+  var opts = (scene.views.options || []).slice();
+  if (withSheet) {
+    var o = document.createElement('option');
+    o.value = 'sheet';
+    o.textContent = 'Sheet (' + sheetScale + ')';
+    sel.appendChild(o);
+  }
+  var known = !own || opts.indexOf(own) >= 0;
+  opts.forEach(function (label) {
+    var o = document.createElement('option');
+    o.value = label;
+    o.textContent = label;
+    sel.appendChild(o);
+  });
+  var co = document.createElement('option');
+  co.value = 'custom';
+  co.textContent = known ? 'Custom\u2026' : 'Custom (' + own + ')';
+  sel.appendChild(co);
+  sel.value = withSheet ? (own ? (known ? own : 'custom') : 'sheet') : (known ? current : 'custom');
+  var box = document.createElement('div');
+  box.className = 'custom';
+  box.hidden = sel.value !== 'custom';
+  var input = document.createElement('input');
+  input.placeholder = '1:30';
+  input.value = known ? '' : (own || current);
+  var set = document.createElement('button');
+  set.type = 'button';
+  set.textContent = 'Set';
+  set.addEventListener('click', function () { if (input.value) { onPick(input.value); } });
+  box.appendChild(input);
+  box.appendChild(set);
+  sel.addEventListener('change', function () {
+    if (sel.value === 'custom') { box.hidden = false; input.focus(); return; }
+    onPick(sel.value);
+  });
+  row.appendChild(name);
+  row.appendChild(sel);
+  row.appendChild(box);
+  return row;
+}
+
+function scales() {
+  var host = document.getElementById('scales');
+  host.innerHTML = '';
+  var v = scene.views || {views: []};
+  var sheetScale = v.sheet_scale || '1:1';
+  host.appendChild(scaleRow('Sheet', sheetScale, sheetScale, function (value) {
+    run('set_sheet_scale', {scale: value});
+  }, false, sheetScale));
+  v.views.forEach(function (view) {
+    if (view.kind === 'detail') { return; }
+    host.appendChild(scaleRow(view.label, view.shown, view.scale, function (value) {
+      run('set_view_scale', {id: view.id, scale: value});
+    }, true, sheetScale));
+  });
+  var probs = document.getElementById('layout-problems');
+  probs.innerHTML = '';
+  ((scene.result && scene.result.problems) || []).forEach(function (text) {
+    var li = document.createElement('li');
+    li.textContent = text;
+    probs.appendChild(li);
+  });
+  document.getElementById('min-line').value = v.min_line_mm;
+  document.getElementById('small-feature').value = v.small_feature_mm;
 }
 
 function tabs() {
@@ -326,6 +417,12 @@ function onUp(e) {
 }
 
 document.getElementById('reset').addEventListener('click', function () { run('reset'); });
+document.getElementById('apply-lines').addEventListener('click', function () {
+  run('set_view_options', {
+    min_line_mm: document.getElementById('min-line').value,
+    small_feature_mm: document.getElementById('small-feature').value
+  });
+});
 document.getElementById('split-above').addEventListener('click', function () {
   run('split_table', {row: scene.selection.key, where: 'above'});
 });

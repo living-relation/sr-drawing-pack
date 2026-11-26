@@ -48,6 +48,34 @@ def build_scene(document, sheet_id=None, selected_key=None):
         'suggestions': [dict(s) for s in doc.suggestions if s.get('status', 'open') == 'open'],
         'dimensions': dims,
         'callouts': callouts,
+        'views': _views(doc, sheet),
+    }
+
+
+def _views(doc, sheet):
+    """Scale controls: the sheet scale, each view's own scale, and the standard list."""
+    from .model import resolved_view, sheet_scale
+    from .viewsheet import STD_SCALES, min_line_mm, small_feature_mm
+    sc = sheet_scale(doc, sheet)
+    rows = []
+    for el in sheet.get('elements') or []:
+        if el.get('type') != 'view':
+            continue
+        shown = resolved_view(doc, sheet, el)
+        rows.append({
+            'id': el.get('id'),
+            'label': el.get('label') or el.get('id'),
+            'kind': el.get('kind') or 'standard',
+            'scale': el.get('scale') or None,
+            'shown': shown.get('scale') or sc,
+            'generated': bool(el.get('geom')),
+        })
+    return {
+        'sheet_scale': sc,
+        'options': [label for _v, label in STD_SCALES],
+        'views': rows,
+        'min_line_mm': min_line_mm(doc.properties),
+        'small_feature_mm': small_feature_mm(doc.properties),
     }
 
 

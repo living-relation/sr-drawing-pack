@@ -6,6 +6,11 @@ keep a depth buffer, draw only the visible feature edges, and join them.
 Hidden edges are never returned. A mesh body's triangle edges are not drawn;
 curved parts contribute silhouettes, rims and centre marks.
 
+A mesh part may carry a sixth item, a dict. With 'outline': True (hardware:
+screws, nuts, washers, standoffs, inserts) only the part's outline is drawn: an
+edge with the part's own face on both sides of it in the view (a socket, a
+chamfer ring, a thread line) is left out.
+
 Centre lines use the sheet centre style. Tangent rims use the thin style.
 Sharp edges use the visible weight.
 """
@@ -25,7 +30,10 @@ _TOWARD = {
     'trimetric': (1.0, -1.0, 0.85),
 }
 
-MESH_EPS_PX = 2.0
+MESH_EPS_PX = 2.0      # slack against the edge's own faces (sloped faces on a coarse view)
+OTHER_EPS_PX = 1.0     # slack against another part's faces, in buffer pixels
+OUTLINE_GRID = 64      # cells across a hardware part for its outline mask
+OUTLINE_PROBE = 4.0    # cells either side of an edge that must both be the part to drop it
 _BUF_W = 480
 _BUF_H = 360
 
@@ -157,7 +165,7 @@ def _camera_frame(parts, toward, right, up):
     return min(xs) - pad, max(xs) + pad, min(ys) - pad, max(ys) + pad, min(zs), max(zs)
 
 
-def _paint(z, w, h, u0, v0, d0, u1, v1, d1, u2, v2, d2, scale, origin, shade=None, tone=180):
+def _paint(z, w, h, u0, v0, d0, u1, v1, d1, u2, v2, d2, scale, origin, shade=None, tone=180, owner=None, pid=0):
     x0, y0 = (u0 - origin[0]) * scale, (v0 - origin[1]) * scale
     x1, y1 = (u1 - origin[0]) * scale, (v1 - origin[1]) * scale
     x2, y2 = (u2 - origin[0]) * scale, (v2 - origin[1]) * scale
@@ -199,6 +207,8 @@ def _paint(z, w, h, u0, v0, d0, u1, v1, d1, u2, v2, d2, scale, origin, shade=Non
                 z[i] = depth
                 if shade is not None:
                     shade[i] = tone
+                if owner is not None:
+                    owner[i] = pid
 
 
 def _sample_depth(z, w, h, u, v, scale, origin):
@@ -209,16 +219,26 @@ def _sample_depth(z, w, h, u, v, scale, origin):
     return z[y * w + x]
 
 
-def _edge_runs(z, w, h, a, b, right, up, toward, scale, origin, eps, samples=8):
+def _edge_runs(z, w, h, a, b, right, up, toward, scale, origin, eps, samples=8, owner=None, pid=0, eps_other=None):
+    """Visible runs of one edge. With an owner buffer, the slack `eps` only
+    applies against the edge's own part; another part's face in front of it
+    hides it past `eps_other` (so a standoff under a screw head stays hidden)."""
     pts = []
     vis = []
+    ou, ov = origin
     for i in range(samples + 1):
         t = i / float(samples)
         p = (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t)
         u, v, d = _project_point(p, right, up, toward)
-        buf = _sample_depth(z, w, h, u, v, scale, origin)
         pts.append((u, v))
-        vis.append(buf is not None and d >= buf - eps)
+        x = int((u - ou) * scale)
+        y = int((v - ov) * scale)
+        if x < 0 or y < 0 or x >= w or y >= h:
+            vis.append(False)
+            continue
+        k = y * w + x
+        slack = eps if owner is None or eps_other is None or owner[k] == pid else eps_other
+        vis.append(d >= z[k] - slack)
     runs = []
     start = None
     for i, ok in enumerate(vis):
@@ -345,8 +365,10 @@ def _project_view(parts, name, mode, buf_w, buf_h):
     mesh_eps = eps + MESH_EPS_PX / scale
     z = array.array('f', [-1e30] * (buf_w * buf_h))
     shade = array.array('B', bytes(buf_w * buf_h))
+    owner = array.array('i', bytes(4 * buf_w * buf_h))
+    other_eps = 0.1 + OTHER_EPS_PX / scale
     light = _norm(_add(toward, up, 0.65))
-    for part in parts:
+    for pid, part in enumerate(parts, 1):
         if part[0] == 'box':
             pts, quads, _e = _box_faces(part)
             for q in quads:
@@ -357,10 +379,10 @@ def _project_view(parts, name, mode, buf_w, buf_h):
                     continue
                 tone = int(70 + 130 * max(0.0, _dot(_norm(n), light)))
                 pa, pb, pc, pd = (_project_point(p, right, up, toward) for p in (a, b, c, d))
-                _paint(z, buf_w, buf_h, pa[0], pa[1], pa[2], pb[0], pb[1], pb[2], pc[0], pc[1], pc[2], scale, origin, shade, tone)
-                _paint(z, buf_w, buf_h, pa[0], pa[1], pa[2], pc[0], pc[1], pc[2], pd[0], pd[1], pd[2], scale, origin, shade, tone)
+                _paint(z, buf_w, buf_h, pa[0], pa[1], pa[2], pb[0], pb[1], pb[2], pc[0], pc[1], pc[2], scale, origin, shade, tone, owner, pid)
+                _paint(z, buf_w, buf_h, pa[0], pa[1], pa[2], pc[0], pc[1], pc[2], pd[0], pd[1], pd[2], scale, origin, shade, tone, owner, pid)
         elif part[0] == 'mesh':
-            _paint_mesh(part, z, buf_w, buf_h, right, up, toward, light, scale, origin, shade)
+            _paint_mesh(part, z, buf_w, buf_h, right, up, toward, light, scale, origin, shade, owner, pid)
         else:
             pts, tris = _cyl_mesh(part)
             proj = [_project_point(p, right, up, toward) for p in pts]
@@ -370,17 +392,22 @@ def _project_view(parts, name, mode, buf_w, buf_h):
                 _paint(z, buf_w, buf_h,
                        proj[i][0], proj[i][1], proj[i][2],
                        proj[j][0], proj[j][1], proj[j][2],
-                       proj[k][0], proj[k][1], proj[k][2], scale, origin, shade, tone)
+                       proj[k][0], proj[k][1], proj[k][2], scale, origin, shade, tone, owner, pid)
     segments = []
     circles = []
-    for part in parts:
+    outline_cache = {}
+    for pid, part in enumerate(parts, 1):
         if part[0] == 'box':
             pts, _q, edges = _box_faces(part)
             for i, j in edges:
                 for a, b in _edge_runs(z, buf_w, buf_h, pts[i], pts[j], right, up, toward, scale, origin, eps):
                     segments.append((a, b, 'vis'))
         elif part[0] == 'mesh':
-            segments.extend(_mesh_features(part, z, buf_w, buf_h, right, up, toward, scale, origin, mesh_eps))
+            segs = _mesh_features(part, z, buf_w, buf_h, right, up, toward, scale, origin, mesh_eps,
+                                  owner, pid, other_eps)
+            if len(part) > 5 and part[5] and part[5].get('outline'):
+                segs = _outline_only(part, segs, right, up, outline_cache)
+            segments.extend(segs)
         else:
             segments.extend(_cyl_features(part, z, buf_w, buf_h, right, up, toward, scale, origin, eps, circles))
     lines = _join(segments) if mode == 'hq' else [
@@ -393,7 +420,7 @@ def _project_view(parts, name, mode, buf_w, buf_h):
     }
 
 
-def _paint_mesh(part, z, w, h, right, up, toward, light, scale, origin, shade):
+def _paint_mesh(part, z, w, h, right, up, toward, light, scale, origin, shade, owner=None, pid=0):
     """Fill the depth buffer from a triangle mesh. Faces turned away are skipped."""
     _k, pts, tris = part[0], part[1], part[2]
     rx, ry, rz = right
@@ -417,10 +444,10 @@ def _paint_mesh(part, z, w, h, right, up, toward, light, scale, origin, shade):
         nz = e1[0] * e2[1] - e1[1] * e2[0]
         nl = math.sqrt(nx * nx + ny * ny + nz * nz) or 1.0
         tone = int(70 + 130 * max(0.0, (nx * lx + ny * ly + nz * lz) / nl))
-        _paint(z, w, h, a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2], 1.0, (0.0, 0.0), shade, tone)
+        _paint(z, w, h, a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2], 1.0, (0.0, 0.0), shade, tone, owner, pid)
 
 
-def _mesh_features(part, z, w, h, right, up, toward, scale, origin, eps):
+def _mesh_features(part, z, w, h, right, up, toward, scale, origin, eps, owner=None, pid=0, eps_other=None):
     """Visible B-rep edges of a mesh part, and the silhouettes of its curved faces."""
     edges = part[3] if len(part) > 3 else ()
     smooth = part[4] if len(part) > 4 else ()
@@ -432,7 +459,7 @@ def _mesh_features(part, z, w, h, right, up, toward, scale, origin, eps):
             du = (p[0] - prev[0]) * right[0] + (p[1] - prev[1]) * right[1] + (p[2] - prev[2]) * right[2]
             dv = (p[0] - prev[0]) * up[0] + (p[1] - prev[1]) * up[1] + (p[2] - prev[2]) * up[2]
             samples = max(1, min(8, int(math.sqrt(du * du + dv * dv) * scale / 3.0)))
-            for a, b in _edge_runs(z, w, h, prev, p, right, up, toward, scale, origin, eps, samples):
+            for a, b in _edge_runs(z, w, h, prev, p, right, up, toward, scale, origin, eps, samples, owner, pid, eps_other):
                 segs.append((a, b, style))
             prev = p
     tx, ty, tz = toward
@@ -441,9 +468,98 @@ def _mesh_features(part, z, w, h, right, up, toward, scale, origin, eps):
         f2 = n2[0] * tx + n2[1] * ty + n2[2] * tz
         if f1 * f2 >= 0.0:
             continue
-        for p, q in _edge_runs(z, w, h, a, b, right, up, toward, scale, origin, eps, 1):
+        for p, q in _edge_runs(z, w, h, a, b, right, up, toward, scale, origin, eps, 1, owner, pid, eps_other):
             segs.append((p, q, 'vis'))
     return segs
+
+
+def _outline_mask(part, right, up, cache):
+    """Cells of the view this part's faces cover: (grid, nx, ny, cell, u0, v0).
+
+    Placements of one body with the same rotation share the mask; only the
+    corner moves."""
+    pts, tris = part[1], part[2]
+    rx, ry, rz = right
+    ux, uy, uz = up
+    proj = [(p[0] * rx + p[1] * ry + p[2] * rz, p[0] * ux + p[1] * uy + p[2] * uz) for p in pts]
+    umin = min(q[0] for q in proj)
+    vmin = min(q[1] for q in proj)
+    meta = part[5]
+    key = (meta.get('key'), meta.get('rot')) if meta.get('key') is not None and meta.get('rot') is not None else None
+    if key is not None and key in cache:
+        grid, nx, ny, cell = cache[key]
+        return grid, nx, ny, cell, umin - cell, vmin - cell
+    span = max(max(q[0] for q in proj) - umin, max(q[1] for q in proj) - vmin, 1e-9)
+    cell = span / OUTLINE_GRID
+    nx = ny = OUTLINE_GRID + 3
+    u0, v0 = umin - cell, vmin - cell
+    grid = bytearray(nx * ny)
+    inv = 1.0 / cell
+    for i, j, k in tris:
+        a, b, c = proj[i], proj[j], proj[k]
+        ax, ay = (a[0] - u0) * inv, (a[1] - v0) * inv
+        bx, by = (b[0] - u0) * inv, (b[1] - v0) * inv
+        cx, cy = (c[0] - u0) * inv, (c[1] - v0) * inv
+        area = (bx - ax) * (cy - ay) - (cx - ax) * (by - ay)
+        if area <= 0.0:
+            continue  # turned away or edge-on
+        x0 = max(0, int(min(ax, bx, cx)))
+        x1 = min(nx - 1, int(max(ax, bx, cx)))
+        y0 = max(0, int(min(ay, by, cy)))
+        y1 = min(ny - 1, int(max(ay, by, cy)))
+        for gy in range(y0, y1 + 1):
+            py = gy + 0.5
+            row = gy * nx
+            for gx in range(x0, x1 + 1):
+                px = gx + 0.5
+                if ((bx - ax) * (py - ay) - (by - ay) * (px - ax) >= 0.0 and
+                        (cx - bx) * (py - by) - (cy - by) * (px - bx) >= 0.0 and
+                        (ax - cx) * (py - cy) - (ay - cy) * (px - cx) >= 0.0):
+                    grid[row + gx] = 1
+    # Outer silhouette only: a socket or a through hole counts as the part.
+    seen = bytearray(nx * ny)
+    stack = [i for i in range(nx * ny)
+             if (i < nx or i >= nx * (ny - 1) or i % nx in (0, nx - 1)) and not grid[i]]
+    for i in stack:
+        seen[i] = 1
+    while stack:
+        i = stack.pop()
+        x, y = i % nx, i // nx
+        for j in ((i - 1) if x > 0 else -1, (i + 1) if x < nx - 1 else -1,
+                  (i - nx) if y > 0 else -1, (i + nx) if y < ny - 1 else -1):
+            if j >= 0 and not seen[j] and not grid[j]:
+                seen[j] = 1
+                stack.append(j)
+    grid = bytearray(0 if seen[i] else 1 for i in range(nx * ny))
+    if key is not None:
+        cache[key] = (grid, nx, ny, cell)
+    return grid, nx, ny, cell, u0, v0
+
+
+def _outline_only(part, segs, right, up, cache):
+    """Keep the segments on the part's outline: one side of them is not the part."""
+    grid, nx, ny, cell, u0, v0 = _outline_mask(part, right, up, cache)
+    probe = OUTLINE_PROBE * cell
+    inv = 1.0 / cell
+
+    def inside(u, v):
+        x = int((u - u0) * inv)
+        y = int((v - v0) * inv)
+        return 0 <= x < nx and 0 <= y < ny and grid[y * nx + x] == 1
+
+    out = []
+    for seg in segs:
+        a, b = seg[0], seg[1]
+        du, dv = b[0] - a[0], b[1] - a[1]
+        length = math.sqrt(du * du + dv * dv)
+        mu, mv = (a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5
+        if length <= 0.0:
+            continue
+        nu, nv = -dv / length * probe, du / length * probe
+        if inside(mu + nu, mv + nv) and inside(mu - nu, mv - nv):
+            continue
+        out.append(seg)
+    return out
 
 
 def _counts(lines):

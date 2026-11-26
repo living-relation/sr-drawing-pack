@@ -42,8 +42,9 @@ _SPLIT = {'anchor': 'free', 'x1': 412.0, 'ytop': 245.0, 'max_height': 60.0}
 class Demo(object):
     """One sample drawing and the editor actions the page can call."""
 
-    def __init__(self, build=None):
+    def __init__(self, build=None, parts=None):
         self._build = build or build_sample
+        self.parts = parts  # real assembly: views are projected again when a scale grows
         self.doc = self._build()
         self.sheet_id = 's1'
         self.selected = None
@@ -82,10 +83,17 @@ class Demo(object):
             args.setdefault('y', y)
             args.setdefault('w', w)
             args.setdefault('h', h)
+        elif name in ('set_view_scale', 'set_sheet_scale', 'set_view_options'):
+            pass
         elif name != 'dismiss_suggestion':
             raise ValueError('unknown command %r' % name)
         out = execute(self.doc, name, args)
         self.doc = out['document']
+        if self.parts is not None and name in ('set_view_scale', 'set_sheet_scale'):
+            from sheet2d.viewsheet import reproject_sharper
+            redone = reproject_sharper(self.parts, self.doc, self.sheet_id)
+            if redone:
+                out['result']['reprojected'] = [{'view': n, 'seconds': round(t, 2)} for n, t in redone]
         scene = self.scene()
         scene['result'] = out['result']
         return scene
@@ -171,8 +179,8 @@ def serve(host='127.0.0.1', port=8765, demo=None):
     return httpd
 
 
-def real_views(fusion=None, step=None, title=None):
-    """A document builder for the editor: the four views of a real assembly."""
+def real_views(fusion=None, step=None, title=None, sheet_scale=None, view_scales=None):
+    """(builder, parts) for the editor: the four views of a real assembly."""
     from sheet2d.viewsheet import build_view_sheet
     if fusion:
         from sheet2d.meshparts import load_fusion_dump
@@ -184,9 +192,19 @@ def real_views(fusion=None, step=None, title=None):
         parts, _info = load_step(step)
         name = title or os.path.splitext(os.path.basename(step))[0]
         source = 'STEP'
-    doc, report = build_view_sheet(parts, name, source=source)
+    doc, report = build_view_sheet(parts, name, source=source, sheet_scale=sheet_scale, view_scales=view_scales)
     print('Views at %s in %.1f s' % (report['scale'], report['seconds']))
-    return lambda: json.loads(json.dumps(doc))
+    keys = [el.get('geom') for s in doc['sheets'] for el in s.get('elements') or [] if el.get('geom')]
+    from sheet2d.viewsheet import register_view_geometry, view_geometry
+    first = {k: dict(view_geometry(k)) for k in keys}
+
+    def build():
+        # Reset puts back the first views, lines included.
+        for k, g in first.items():
+            register_view_geometry(k, {'lines': g['lines'], 'extent': g['extent'], 'name': g['name'],
+                                       'buf': (0, 0, None, g['px_per_model_mm'])})
+        return json.loads(json.dumps(doc))
+    return build, parts
 
 
 def main(argv):
@@ -200,7 +218,8 @@ def main(argv):
     port = args.port
     demo = None
     if args.fusion or args.step:
-        demo = Demo(real_views(args.fusion, args.step, args.title))
+        build, parts = real_views(args.fusion, args.step, args.title)
+        demo = Demo(build, parts)
     httpd = serve(port=port, demo=demo)
     print('Sheet editor: http://127.0.0.1:%d/' % port)
     try:

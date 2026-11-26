@@ -1,9 +1,16 @@
 """Real views on a size B sheet, from a Fusion read or a STEP file. Writes a PDF.
 
-From the repo folder, after fusion_read.py wrote a folder (see docs/fusion-read.md):
+From the repo folder, after fusion_read.py wrote a folder (see docs/sheet-editor.md):
 
   python dev/fusion_sheet.py out.pdf --fusion DUMP_FOLDER [--title "..."]
   python dev/fusion_sheet.py out.pdf --step assembly.step [--title "..."]
+
+Options:
+  --sheet-scale 1:30        sheet scale (default: largest standard scale that fits)
+  --view trimetric=1:20     one view at its own scale (repeat for more views)
+  --min-line 0.3            smallest line on paper, mm (0 = keep all)
+  --small-feature 3.0       smaller features keep only their outline, mm (0 = off)
+  --all-edges               draw every edge of hardware too (default: outline only)
 
 Prints the time for each step. Keep model files and dumps outside this repo.
 """
@@ -31,12 +38,12 @@ def _arg(args, flag):
     return None
 
 
-def load_parts(fusion=None, step=None):
+def load_parts(fusion=None, step=None, hardware_outline=True):
     """(parts, title, source, seconds)."""
     t0 = time.perf_counter()
     if fusion:
         from sheet2d.meshparts import load_fusion_dump
-        parts, info = load_fusion_dump(fusion)
+        parts, info = load_fusion_dump(fusion, hardware_outline=hardware_outline)
         title = info['document']
         source = '%s (Fusion)' % info['document']
     else:
@@ -52,13 +59,35 @@ def main(argv):
     fusion = _arg(args, '--fusion')
     step = _arg(args, '--step')
     title = _arg(args, '--title')
+    sheet_scale = _arg(args, '--sheet-scale')
+    min_line = _arg(args, '--min-line')
+    small = _arg(args, '--small-feature')
+    views = {}
+    while '--view' in args:
+        pair = _arg(args, '--view') or ''
+        name_, _, value = pair.partition('=')
+        views[name_.strip()] = value.strip()
+    outline = '--all-edges' not in args
+    if not outline:
+        args.remove('--all-edges')
     if len(args) != 1 or not (fusion or step):
         print(__doc__)
         return 2
-    parts, name, source, load_s = load_parts(fusion, step)
+    parts, name, source, load_s = load_parts(fusion, step, outline)
     print('load %.2f s  parts %d' % (load_s, len(parts)))
     doc, report = build_view_sheet(parts, (title or name).upper(), source=source,
-                                   date=datetime.date.today().isoformat())
+                                   date=datetime.date.today().isoformat(),
+                                   sheet_scale=sheet_scale, view_scales=views)
+    if min_line is not None or small is not None:
+        from sheet2d.commands import execute
+        opts = {}
+        if min_line is not None:
+            opts['min_line_mm'] = float(min_line)
+        if small is not None:
+            opts['small_feature_mm'] = float(small)
+        doc = execute(doc, 'set_view_options', opts)['document']
+    for p in report.get('problems') or []:
+        print('layout: %s' % p)
     for v in report['views']:
         print('%-9s %6.2f s  scale %-6s buffer %dx%d  lines %d' % (
             v['name'], v['seconds'], v['scale'], v['buffer'][0], v['buffer'][1], v['lines']))
