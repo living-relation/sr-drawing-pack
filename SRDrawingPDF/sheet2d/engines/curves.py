@@ -12,9 +12,33 @@ def _near(a, b, tol):
 
 
 def bridge_gaps(polylines, tol):
-    """Join polylines whose ends lie within tol. Short breaks in a visible edge close up."""
+    """Join polylines whose ends lie within tol. Short breaks in a visible edge close up.
+
+    A spatial hash finds the same neighbor the old scan found: the lowest
+    unused index, and the same end-to-end order. The result matches that scan.
+    """
     unused = [list(p) for p in polylines if len(p) >= 2]
-    used = [False] * len(unused)
+    n = len(unused)
+    used = [False] * n
+    cell = tol if tol > 0 else 1e-12
+    buckets = {}
+
+    def _cell(p):
+        return (int(math.floor(p[0] / cell)), int(math.floor(p[1] / cell)))
+
+    for i, pts in enumerate(unused):
+        buckets.setdefault(_cell(pts[0]), []).append(i)
+        if _cell(pts[-1]) != _cell(pts[0]):
+            buckets.setdefault(_cell(pts[-1]), []).append(i)
+
+    def _nearby(p):
+        cx, cy = _cell(p)
+        found = []
+        for dx in (-2, -1, 0, 1, 2):
+            for dy in (-2, -1, 0, 1, 2):
+                found.extend(buckets.get((cx + dx, cy + dy), ()))
+        return found
+
     out = []
     for i, pts in enumerate(unused):
         if used[i]:
@@ -23,9 +47,17 @@ def bridge_gaps(polylines, tol):
         grew = True
         while grew:
             grew = False
-            for j, other in enumerate(unused):
-                if used[j]:
-                    continue
+            seen = set()
+            order = []
+            for end in (pts[-1], pts[0]):
+                for j in _nearby(end):
+                    if used[j] or j in seen:
+                        continue
+                    seen.add(j)
+                    order.append(j)
+            order.sort()
+            for j in order:
+                other = unused[j]
                 if _near(pts[-1], other[0], tol):
                     pts.extend(other[1:])
                 elif _near(pts[-1], other[-1], tol):
