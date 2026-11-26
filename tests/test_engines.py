@@ -4,7 +4,7 @@ import math
 import pytest
 
 from sheet2d.engines import engine_for_preset, engine_names, get_engine, normalize_lines
-from sheet2d.engines.curves import bridge_gaps, fit_circle, fit_ellipse
+from sheet2d.engines.curves import bridge_gaps, fit_chain, fit_circle, fit_ellipse
 from sheet2d.commands import execute
 
 
@@ -54,6 +54,26 @@ def test_small_gaps_join_and_round_edges_fit():
     ellipse = fit_ellipse(pts, 0.05)
     assert ellipse and ellipse['rx'] == pytest.approx(6, rel=0.08)
     assert ellipse['ry'] == pytest.approx(2.4, rel=0.12)
+    assert abs((ellipse['rot'] - phi + math.pi / 2) % math.pi - math.pi / 2) < 0.15
+
+
+def test_an_open_curve_is_an_arc_or_a_polyline_never_a_full_circle():
+    gentle = []
+    radius = 3000.0
+    half = 20.0 / radius
+    for i in range(16):
+        t = -half + 2 * half * i / 15
+        gentle.append((radius * math.sin(t), radius * (1.0 - math.cos(t))))
+    assert fit_circle(gentle, 0.05) is None
+    assert fit_chain(gentle, 'vis')['kind'] == 'poly'
+    arc_pts = []
+    for i in range(10):
+        t = 0.2 + 1.0 * i / 9
+        arc_pts.append((12.0 * math.cos(t), 12.0 * math.sin(t)))
+    arc = fit_chain(arc_pts, 'vis')
+    assert arc['kind'] == 'arc'
+    assert arc['r'] == pytest.approx(12.0, abs=0.05)
+    assert 0.5 < abs(arc['a1'] - arc['a0']) < 1.5
 
 
 def test_preset_is_stored_and_shown():

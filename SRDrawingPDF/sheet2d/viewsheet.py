@@ -90,6 +90,12 @@ def _bbox(line):
     if line['kind'] == 'ellipse':
         (cx, cy), r = line['c'], max(line['rx'], line['ry'])
         return (cx - r, cy - r, cx + r, cy + r)
+    if line['kind'] == 'arc':
+        from sheet2d.engines.curves import arc_points
+        pts = arc_points(line, 16)
+        xs = [p[0] for p in pts]
+        ys = [p[1] for p in pts]
+        return (min(xs), min(ys), max(xs), max(ys))
     xs = [p[0] for p in line['pts']]
     ys = [p[1] for p in line['pts']]
     return (min(xs), min(ys), max(xs), max(ys))
@@ -172,6 +178,9 @@ def draw_view_lines(sh, el, geom, scale, caption=None, min_mm=MIN_LINE_MM, small
             continue
         if line['kind'] == 'ellipse':
             pts = _ellipse_pts(line, 48)
+        elif line['kind'] == 'arc':
+            from sheet2d.engines.curves import arc_points
+            pts = arc_points(line, max(8, int(abs(line['a1'] - line['a0']) / (math.pi / 36.0))))
         else:
             pts = line['pts']
         sh.pl([(cx + (p[0] - uc) * s, cy + (p[1] - vc) * s) for p in pts], sty)

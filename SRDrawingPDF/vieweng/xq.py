@@ -296,6 +296,9 @@ def _pts_of(line):
     if line['kind'] == 'ellipse':
         c, rx, ry = line['c'], line['rx'], line['ry']
         return [(c[0] - rx, c[1] - ry), (c[0] + rx, c[1] + ry)]
+    if line['kind'] == 'arc':
+        from sheet2d.engines.curves import arc_points
+        return arc_points(line, 16)
     return []
 
 
@@ -1226,6 +1229,8 @@ def _length(line):
         return 2 * math.pi * line['r']
     if line['kind'] == 'ellipse':
         return 2 * math.pi * max(line['rx'], line['ry'])
+    if line['kind'] == 'arc':
+        return abs(line['a1'] - line['a0']) * line['r']
     pts = line['pts']
     return sum(math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(pts, pts[1:]))
 
@@ -1262,10 +1267,8 @@ def _silhouettes(verts, faces, corners, toward):
 
 def _chain(projected, segs, tol):
     """Join 3-D silhouette segments whose 2-D ends are within tol. Returns 3-D polylines."""
-    import numpy as np
     if not len(segs):
         return []
-    ends = []
     links = []
     for i, seg in enumerate(segs):
         a = (float(projected[i, 0, 0]), float(projected[i, 0, 1]))
@@ -1273,14 +1276,18 @@ def _chain(projected, segs, tol):
         links.append((a, b, seg[0], seg[1]))
     # Reuse the 2-D gap joiner on the projected ends, then rebuild 3-D by index.
     polylines = bridge_gaps([[link[0], link[1]] for link in links], tol)
-    # Map each 2-D point back to the nearest 3-D end. Good enough for a silhouette chain.
-    flat2 = np.array([p for link in links for p in link[:2]])
-    flat3 = np.array([p for link in links for p in (link[2], link[3])])
+    # Each joined point is one of these ends. The first copy wins, same as argmin.
+    flat3 = [p for link in links for p in (link[2], link[3])]
+    index = {}
+    slot = 0
+    for link in links:
+        for point in link[:2]:
+            index.setdefault(point, slot)
+            slot += 1
     out = []
     for poly in polylines:
         chain = []
-        for x, y in poly:
-            d = np.hypot(flat2[:, 0] - x, flat2[:, 1] - y)
-            chain.append(flat3[int(np.argmin(d))])
+        for point in poly:
+            chain.append(flat3[index[point]])
         out.append(chain)
     return out
