@@ -77,6 +77,20 @@ def test_an_open_curve_is_an_arc_or_a_polyline_never_a_full_circle():
     assert 0.5 < abs(arc['a1'] - arc['a0']) < 1.5
 
 
+def test_a_circle_bigger_than_the_view_stays_a_polyline():
+    big = [(3000 * math.cos(2 * math.pi * i / 32), 3000 * math.sin(2 * math.pi * i / 32)) for i in range(32)]
+    big.append(big[0])
+    assert fit_chain(big, 'vis', max_r=200)['kind'] == 'poly'
+    small = [(5 * math.cos(2 * math.pi * i / 16), 5 * math.sin(2 * math.pi * i / 16)) for i in range(16)]
+    small.append(small[0])
+    assert fit_chain(small, 'vis', max_r=200)['kind'] == 'circle'
+    assert fit_chain(arc_pts_of(12), 'vis', max_r=5)['kind'] == 'poly'
+
+
+def arc_pts_of(radius):
+    return [(radius * math.cos(0.2 + i / 9), radius * math.sin(0.2 + i / 9)) for i in range(10)]
+
+
 def test_preset_is_stored_and_shown():
     doc = execute(None, 'add_sheet', {'id': 's1'})['document']
     out = execute(doc, 'set_view_preset', {'preset': 'hq'})
