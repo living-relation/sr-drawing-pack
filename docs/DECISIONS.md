@@ -529,3 +529,11 @@ Entry format: ID, Status, Context, Decision, Rejected, Supersedes, Reopen if.
 - Rejected: only Daniel's sparkCAD sessions touch it.
 - Supersedes: none.
 - Reopen if: none.
+
+## ADR-064: Vault answers D5a, D6a, D7 (2026-11-25, Daniel)
+- Status: Accepted
+- Context: Questions recorded in the EasyPDM fork (its V-010 to V-012).
+- Decision: Vault revs follow ADR-011 (D5a). Anyone who did not make the change approves; admins and app owners may approve their own (D6a). Only controlled files go in the vault: bought (off-the-shelf) and customer parts get no vault item and no drawing and appear only as BOM rows with their maker or customer number; live Fusion models stay in the Fusion hub as "living" or "prototype" files (D7). So the drawing's BOM lists bought parts by maker number, and "Get part numbers" (ADR-058) numbers only made items (PRT, SUB, ASY, CBL, WIR).
+- Rejected: plain A, B, C revs; admin-only approval; vault items for bought or customer parts.
+- Supersedes: the MFR and CUS kinds in ADR-058.
+- Reopen if: none. Open: D8, STEP files in the vault (EasyPDM fork SPEC).
