@@ -1,10 +1,14 @@
 """Title-block defaults and the drawing initials rule.
 
-Project name, first match wins:
-  1. the document property (a spec value)
+Company / project, first match wins:
+  1. the document property (a spec value, or the open design when it has one)
   2. environment: DRAWING_PROJECT
   3. local.toml next to the add-in, [drawing] project = "..."
-  4. neutral default: "PROJECT"
+  4. blank
+
+The design's own company and project are copied when they exist. A missing
+name stays blank. The file name is not used, and the word PROJECT is not
+written in as a stand-in.
 
 Initials (DRAWN in the title block, BY in the rev log):
   - DRAWN is the initials on Rev A. It does not change on later letters.
@@ -29,7 +33,7 @@ except ImportError:  # Python < 3.11
     tomllib = None
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-DEFAULTS = {'project': 'PROJECT'}
+DEFAULTS = {'project': ''}
 ENV = {'project': 'DRAWING_PROJECT'}
 
 INITIALS_ENV = 'DRAWING_INITIALS'
@@ -129,8 +133,20 @@ def read_local(root=ROOT):
         return tomllib.load(f)
 
 
+def company_project(company='', project=''):
+    """The COMPANY / PROJECT line. Blank when the design has neither.
+
+    Both names, when they differ, are joined as 'Company / Project'.
+    """
+    company = (company or '').strip()
+    project = (project or '').strip()
+    if company and project and company.casefold() != project.casefold():
+        return '%s / %s' % (company, project)
+    return company or project
+
+
 def title_defaults(root=ROOT, environ=None):
-    """{'project': ...} from env, then local.toml [drawing], then the neutral default."""
+    """{'project': ...} from env, then local.toml [drawing], then blank."""
     environ = os.environ if environ is None else environ
     sec = (read_local(root).get('drawing') or {})
     out = {}

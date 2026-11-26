@@ -48,10 +48,65 @@ def _visible_bodies(component):
     return out
 
 
+def design_fields(attrs, hub_project=''):
+    """Company and project from names the design actually stores.
+
+    `attrs` maps attribute names to values. `hub_project` is the cloud project
+    name when the file is saved in one. Anything missing stays blank. The
+    document file name is not a company or a project.
+    """
+    attrs = {str(key).strip().lower(): (value or '') for key, value in (attrs or {}).items()}
+
+    def pick(*names):
+        for name in names:
+            value = str(attrs.get(name.lower()) or '').strip()
+            if value:
+                return value
+        return ''
+
+    return {
+        'company': pick('company', 'company name', 'organization'),
+        'project': pick('project', 'project name') or str(hub_project or '').strip(),
+    }
+
+
+def _attributes(entity):
+    """Name -> value for one Fusion entity. Empty when the entity has none."""
+    found = {}
+    try:
+        attrs = entity.attributes
+        count = attrs.count
+    except Exception:
+        return found
+    for i in range(count):
+        try:
+            item = attrs.item(i)
+            name = (item.name or '').strip().lower()
+            value = str(item.value or '').strip()
+        except Exception:
+            continue
+        if name and value:
+            found[name] = value
+    return found
+
+
+def _hub_project():
+    """The cloud project name, or '' when this design is not in one."""
+    try:
+        import adsk.core
+        project = adsk.core.Application.get().data.activeProject
+        if project is not None:
+            return str(project.name or '').strip()
+    except Exception:
+        return ''
+    return ''
+
+
 def list_step(out_dir):
     """Write occurrences.json: unique bodies and every visible placement."""
     t0 = time.perf_counter()
     doc, design = _design()
+    fields = design_fields(_attributes(design.rootComponent), _hub_project())
     root = design.rootComponent
     uniques = {}
     placements = []
@@ -73,6 +128,8 @@ def list_step(out_dir):
         add(occ.component, occ.fullPathName, list(occ.transform2.asArray()))
     data = {
         'document': doc.name,
+        'company': fields['company'],
+        'project': fields['project'],
         'units': 'cm',
         'bodies': list(uniques.values()),
         'placements': placements,

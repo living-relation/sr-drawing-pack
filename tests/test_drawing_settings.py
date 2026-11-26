@@ -1,11 +1,14 @@
-"""Title-block project comes from the document, env, or local.toml, with a neutral default."""
+"""Title-block project comes from the design, env, or local.toml. Unknown stays blank."""
+import json
 import os
 
 from sheet2d import settings as S
+from sheet2d.commands import execute
+from fusion_read import design_fields
 
 
 def test_neutral_defaults_without_local_toml(tmp_path):
-    assert S.title_defaults(str(tmp_path), environ={}) == {'project': 'PROJECT'}
+    assert S.title_defaults(str(tmp_path), environ={}) == {'project': ''}
 
 
 def test_local_toml_then_env(tmp_path):
@@ -13,6 +16,51 @@ def test_local_toml_then_env(tmp_path):
     assert S.title_defaults(str(tmp_path), environ={}) == {'project': 'ACME RIG'}
     d = S.title_defaults(str(tmp_path), environ={'DRAWING_PROJECT': 'OTHER'})
     assert d == {'project': 'OTHER'}
+
+
+def test_company_and_project_are_copied_and_never_invented():
+    assert S.company_project('', '') == ''
+    assert S.company_project('Spark Robotic', '') == 'Spark Robotic'
+    assert S.company_project('', 'Rig 4') == 'Rig 4'
+    assert S.company_project('Spark Robotic', 'Rig 4') == 'Spark Robotic / Rig 4'
+    assert S.company_project('Rig 4', 'rig 4') == 'Rig 4'
+    assert design_fields({}, '') == {'company': '', 'project': ''}
+    assert design_fields({'Company': 'Spark Robotic', 'document': 'Bracket v3'}) == {
+        'company': 'Spark Robotic', 'project': '',
+    }
+    assert design_fields({}, hub_project='Rig 4')['project'] == 'Rig 4'
+    # A file name is not a project, even when an attribute is named like one and empty.
+    assert design_fields({'project': '  ', 'name': 'Bracket v3'}, '')['project'] == ''
+
+
+def test_title_block_stays_blank_when_the_design_has_no_project(tmp_path):
+    doc = execute(None, 'add_sheet', {'id': 's1'})['document']
+    doc = execute(doc, 'set_title', {'field': 'project', 'value': S.company_project('', '')})['document']
+    shown = execute(doc, 'title_block', {'sheet': 's1'})['result']['project']
+    assert shown == ''
+    doc = execute(doc, 'set_title', {
+        'field': 'project', 'value': S.company_project('Spark Robotic', 'Rig 4'),
+    })['document']
+    assert execute(doc, 'title_block', {'sheet': 's1'})['result']['project'] == 'Spark Robotic / Rig 4'
+    del tmp_path
+
+
+def test_dump_keeps_company_and_project_and_leaves_them_blank(tmp_path):
+    from sheet2d.meshparts import load_fusion_dump
+    folder = tmp_path / 'dump'
+    folder.mkdir()
+    (folder / 'occurrences.json').write_text(json.dumps({
+        'document': 'Bracket v3', 'units': 'mm', 'bodies': [], 'placements': [],
+    }), encoding='utf-8')
+    _parts, info = load_fusion_dump(str(folder))
+    assert info['document'] == 'Bracket v3'
+    assert info['company'] == '' and info['project'] == ''
+    (folder / 'occurrences.json').write_text(json.dumps({
+        'document': 'Bracket v3', 'company': 'Spark Robotic', 'project': 'Rig 4',
+        'units': 'mm', 'bodies': [], 'placements': [],
+    }), encoding='utf-8')
+    _parts, info = load_fusion_dump(str(folder))
+    assert S.company_project(info['company'], info['project']) == 'Spark Robotic / Rig 4'
 
 
 def test_spec_values_win(tmp_path):

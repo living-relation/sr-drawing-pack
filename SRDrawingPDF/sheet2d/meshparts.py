@@ -191,6 +191,8 @@ def load_fusion_dump(folder, hardware_outline=True):
         names[b['key']] = b.get('name') or ''
     return parts, {
         'document': occ.get('document') or '',
+        'company': occ.get('company') or '',
+        'project': occ.get('project') or '',
         'unique_bodies': len(bodies),
         'placements': len(occ['placements']),
         'missing': len(occ['placements']) - len(parts),
