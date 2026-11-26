@@ -251,7 +251,7 @@ The editor offers two presets. The map is provisional until `dev/compare_engines
 
 ## View generation
 
-The speed check builds the several-hundred-part assembly as a temporary STEP file and draws it with the exact-edge engine (XQ Exact). The four views together must finish in 120 seconds. Hidden edges are not drawn. A round part seen on its end is a circle. The check needs OCP and VTK (`pip install cadquery-ocp vtk`). VTK draws the depth picture offscreen, so the check machine does not need a screen.
+The speed check builds the several-hundred-part assembly as a temporary STEP file and draws it with the exact-edge engine (XQ Exact). The four views together must finish in 120 seconds. Hidden edges are not drawn. A round part seen on its end is a circle. The check needs OCP, VTK, and OSMesa (`pip install cadquery-ocp vtk`, and the `libosmesa6` package). VTK's usual window needs a display and crashes without one. OSMesa draws the depth picture on the CPU, so the check machine does not need a screen.
 
 ```text
 python dev/time_views.py views.png

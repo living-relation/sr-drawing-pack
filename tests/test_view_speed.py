@@ -10,12 +10,12 @@ def test_benchmark_assembly_has_several_hundred_parts():
 
 
 def test_xq_view_set_finishes_within_two_minutes(tmp_path):
+    from sheet2d.engines import get_engine
     from vieweng.stepbench import write_benchmark
-    from vieweng.xq import XqEngine
 
     step = tmp_path / 'bench.step'
     assert write_benchmark(str(step)) >= 400
-    engine = XqEngine()
+    engine = get_engine('xq')
     ok, why = engine.available()
     assert ok, why
     names = ('front', 'top', 'right', 'trimetric')
