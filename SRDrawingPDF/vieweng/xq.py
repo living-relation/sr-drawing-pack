@@ -196,6 +196,9 @@ def _pts_of(line):
     if line['kind'] == 'ellipse':
         c, rx, ry = line['c'], line['rx'], line['ry']
         return [(c[0] - rx, c[1] - ry), (c[0] + rx, c[1] + ry)]
+    if line['kind'] == 'arc':
+        from sheet2d.engines.curves import arc_points
+        return arc_points(line, 16)
     return []
 
 
@@ -1080,6 +1083,8 @@ def _length(line):
         return 2 * math.pi * line['r']
     if line['kind'] == 'ellipse':
         return 2 * math.pi * max(line['rx'], line['ry'])
+    if line['kind'] == 'arc':
+        return abs(line['a1'] - line['a0']) * line['r']
     pts = line['pts']
     return sum(math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(pts, pts[1:]))
 
