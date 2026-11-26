@@ -10,7 +10,7 @@ Updated: 2026-11-25 -- Claude (claude.ai chat, coordinator), lifecycle status lo
 
 ## Active Blocker
 - Status: NONE
-- Detail: none (all answered 2026-11-25, ADR-058 to ADR-063); vault questions D5 to D7 live in the EasyPDM fork SPEC.
+- Detail: none (all answered 2026-11-25, ADR-058 to ADR-063); vault question D8 (STEP in the vault) lives in the EasyPDM fork SPEC.
 
 ## Next Single Step
 - [NEXT] Write the steps 1-9 lifecycle section in docs/SPEC.md for Daniel's approval (ADR-062, D2a); one work stream at a time until his usage resets.
@@ -18,6 +18,6 @@ Updated: 2026-11-25 -- Claude (claude.ai chat, coordinator), lifecycle status lo
 ## Pointers
 - Branch_States: generated (state_manager.py branches)
 - Backlog: BACKLOG.md
-- Latest_ADR: ADR-063
+- Latest_ADR: ADR-064
 - Last_Cleanup: 2026-11-23 @ 818b35e
-- Question_Counter: D7
+- Question_Counter: D8
