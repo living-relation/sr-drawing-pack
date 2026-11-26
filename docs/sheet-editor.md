@@ -247,7 +247,7 @@ The editor offers two presets. The map is provisional until `dev/compare_engines
 | Draft | XQ Quick Look: a coarser depth picture, no arc fitting |
 | HQ | XQ Exact Lines: full depth picture, arcs and trimetric ellipses |
 
-`xq` needs OCP, VTK and numpy, reads a STEP file, and caches the shape by its hash. Loose faces that are not part of a solid are ignored, so they cannot stretch the view. The depth picture is drawn in tiles so one buffer never gets big enough to crash the graphics driver. `fusion` only runs inside Fusion; anywhere else it says so and does not wait or create a drawing. Both keep visible edges only (no dashed back edges). A tangent edge is a thin solid line. Short gaps in a visible edge are closed. Small features keep their outline, and lines shorter than the minimum are dropped.
+`xq` needs OCP, VTK and numpy, reads a STEP file, and caches the shape by its hash. Loose faces that are not part of a solid are ignored, so they cannot stretch the view. The depth picture is drawn in tiles so one buffer never gets big enough to crash the graphics driver. `fusion` only runs inside Fusion; anywhere else it says so and does not wait or create a drawing. A screw, nut, washer, standoff, or insert (a small part whose round faces share one axis, within 30 mm of that axis and 200 mm long) draws its outline only: a socket, chamfer ring, or cone line inside the outline is left out. Both keep visible edges only (no dashed back edges). A tangent edge is a thin solid line. Short gaps in a visible edge are closed. Small features keep their outline, and lines shorter than the minimum are dropped.
 
 ## View generation
 
