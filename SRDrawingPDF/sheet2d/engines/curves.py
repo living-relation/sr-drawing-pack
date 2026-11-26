@@ -353,11 +353,18 @@ def analytic_curve(origin, xdir, ydir, radius, u0, u1, right, up, style, partial
     return {'kind': 'poly', 'pts': pts, 'style': style, 'closed': closed, 'analytic': True}
 
 
-def fit_chain(pts, style, ellipses=False, tol=0.05):
-    """A circle, an ellipse, or a polyline. Hidden styles are not used."""
+def fit_chain(pts, style, ellipses=False, tol=0.05, curves=True):
+    """A circle, an ellipse, or a polyline. Hidden styles are not used.
+
+    curves=False keeps the polyline. Quick Look uses that, so a coarse sample
+    cannot turn into an extra ring.
+    """
     if style in ('hid', 'hidden', 'dash'):
         return None
     style = 'thin' if style in ('tan', 'thin') else 'ctr' if style == 'ctr' else 'vis'
+    if not curves:
+        closed = len(pts) > 2 and _near(pts[0], pts[-1], tol)
+        return {'kind': 'poly', 'pts': [tuple(p) for p in pts], 'style': style, 'closed': closed}
     circ = fit_circle(pts, tol)
     if circ:
         circ['style'] = style

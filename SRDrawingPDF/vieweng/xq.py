@@ -255,12 +255,12 @@ def _render(step, names, workers=None, mode='exact', tangents=True):
         ext_r = float(np.ptp(corners @ r))
         ext_u = float(np.ptp(corners @ u))
         zb, to_win, dz, px = depth.render(c, r, u, ext_r, ext_u, res)
-        use_points, use_counts, use_tangent, use_analytic = _with_hardware_outline(
+        use_points, use_counts, use_tangent, use_analytic, masks = _with_hardware_outline(
             points, counts, tangent, analytic, hardware, r, u)
         lines = _view_lines(
             V, F, CN, use_points, use_counts, use_tangent, use_analytic,
             c, r, u, zb, to_win, dz, px, defl, name, fit,
-            show_tangents=_show_tangents(name, tangents))
+            show_tangents=_show_tangents(name, tangents), masks=masks)
         us = [p[0] for line in lines for p in _pts_of(line)]
         vs = [p[1] for line in lines for p in _pts_of(line)]
         if not us:
@@ -678,9 +678,14 @@ def _solid_triangles(solid):
 
 
 def _with_hardware_outline(points, counts, tangent, analytic, hardware, right, up):
-    """Add fastener edges, minus socket, chamfer, and cone lines inside the outline."""
+    """Add fastener edges, minus socket, chamfer, and cone lines inside the outline.
+
+    Also returns the filled masks, so a silhouette inside a fastener can be
+    dropped the same way. Quick and Exact share that test.
+    """
     import numpy as np
     chunks = [(points, counts, tangent, list(analytic))]
+    masks = []
     for _solid, edges, tris in hardware:
         hp, hc, ht, ha = edges
         if len(hc) == 0 or len(tris) == 0:
@@ -688,21 +693,24 @@ def _with_hardware_outline(points, counts, tangent, analytic, hardware, right, u
             continue
         flat = np.c_[hp @ right, hp @ up]
         tri2 = np.stack([tris @ right, tris @ up], axis=-1)
-        keep = _outline_edges(flat, hc, tri2, list(ha))
+        mask = _fill_mask(tri2)
+        if mask is not None:
+            masks.append(mask)
+        keep = _outline_edges(flat, hc, tri2, list(ha), right, up, mask)
         if not keep.any():
             continue
         kept = np.nonzero(keep)[0]
         chunks.append((_take_edges(hp, hc, keep), hc[keep], ht[keep], [ha[i] for i in kept]))
     chunks = [c for c in chunks if len(c[1])]
     if not chunks:
-        return _empty_edges()
+        return _empty_edges() + (masks,)
     analytic_out = []
     for _p, _c, _t, ha in chunks:
         analytic_out.extend(ha)
     return (np.concatenate([c[0] for c in chunks]),
             np.concatenate([c[1] for c in chunks]).astype(int),
             np.concatenate([c[2] for c in chunks]).astype(bool),
-            analytic_out)
+            analytic_out, masks)
 
 
 def _take_edges(points, counts, keep):
@@ -711,10 +719,14 @@ def _take_edges(points, counts, keep):
     return np.concatenate([points[spans[i]:spans[i + 1]] for i in np.nonzero(keep)[0]])
 
 
-def _outline_edges(flat, counts, tri2, analytic=None):
-    """True for edges that sit on the part outline. An inside edge has the part on both sides."""
+def _outline_edges(flat, counts, tri2, analytic=None, right=None, up=None, mask=None):
+    """True for edges that sit on the part outline. An inside edge has the part on both sides.
+
+    A round edge uses its real center, so a coarse Quick sample still finds the socket.
+    """
     import numpy as np
-    mask = _fill_mask(tri2)
+    if mask is None:
+        mask = _fill_mask(tri2)
     if mask is None:
         return np.ones(len(counts), dtype=bool)
     origin, cell, grid = mask
@@ -728,22 +740,62 @@ def _outline_edges(flat, counts, tri2, analytic=None):
         iy = int((point[1] - origin[1]) / cell)
         return 0 <= ix < n and 0 <= iy < n and grid[iy, ix] == 1
 
+    def both_sides(mid, normal):
+        return inside(mid + normal) and inside(mid - normal)
+
     for i, (a, b) in enumerate(zip(spans[:-1], spans[1:])):
-        if b - a < 2:
-            continue
-        # A closed rim starts and ends at the same point, so use a short step on the run.
-        mid_i = (a + b) // 2
-        step_i = min(b - 1, mid_i + max(1, (b - a) // 16))
-        chord = flat[step_i] - flat[mid_i]
-        length = float(np.hypot(chord[0], chord[1]))
-        if length < 1e-9:
-            continue
-        normal = np.array([-chord[1], chord[0]]) / length * probe
-        mid = flat[(a + b) // 2]
-        if inside(mid + normal) and inside(mid - normal):
+        info = analytic[i] if analytic and i < len(analytic) else None
+        mid = flat[min(max(a, (a + b) // 2), b - 1)]
+        normal = None
+        if info and info.get('o') is not None and right is not None and info.get('r'):
+            center = np.array(info['o'], float)
+            c2 = np.array([float(center @ right), float(center @ up)])
+            radial = mid - c2
+            reach = float(np.hypot(radial[0], radial[1]))
+            if reach > 0.25 * float(info['r']):
+                normal = radial / reach * probe
+        if normal is None:
+            if b - a < 2:
+                continue
+            mid_i = (a + b) // 2
+            step_i = min(b - 1, mid_i + max(1, (b - a) // 16))
+            chord = flat[step_i] - flat[mid_i]
+            length = float(np.hypot(chord[0], chord[1]))
+            if length < 1e-9:
+                continue
+            normal = np.array([-chord[1], chord[0]]) / length * probe
+            mid = flat[mid_i]
+        if both_sides(mid, normal):
             keep[i] = False
     if analytic:
         _keep_outer_silhouette(keep, flat, counts, analytic)
+    return keep
+
+
+def _outer_silhouettes(segs, masks):
+    """True for silhouette pieces that are not inside a fastener head."""
+    import numpy as np
+    keep = np.ones(len(segs), dtype=bool)
+    if not len(segs) or not masks:
+        return keep
+    for origin, cell, grid in masks:
+        n = grid.shape[0]
+        probe = 1.5 * cell
+
+        def inside(point, origin=origin, cell=cell, grid=grid, n=n):
+            ix = int((point[0] - origin[0]) / cell)
+            iy = int((point[1] - origin[1]) / cell)
+            return 0 <= ix < n and 0 <= iy < n and grid[iy, ix] == 1
+
+        mids = (segs[:, 0] + segs[:, 1]) * 0.5
+        chords = segs[:, 1] - segs[:, 0]
+        length = np.hypot(chords[:, 0], chords[:, 1])
+        for i in range(len(segs)):
+            if not keep[i] or length[i] < 1e-9:
+                continue
+            normal = np.array([-chords[i, 1], chords[i, 0]]) / length[i] * probe
+            if inside(mids[i] + normal) and inside(mids[i] - normal):
+                keep[i] = False
     return keep
 
 
@@ -1088,7 +1140,7 @@ def _runs(points2d, keep, counts):
     return out
 
 
-def _view_lines(verts, faces, corners, points, counts, tangent, analytic, toward, right, up, image, to_win, dz, px, defl, name, fit, show_tangents=True):
+def _view_lines(verts, faces, corners, points, counts, tangent, analytic, toward, right, up, image, to_win, dz, px, defl, name, fit, show_tangents=True, masks=None):
     import numpy as np
     lines = []
     if len(counts):
@@ -1110,7 +1162,7 @@ def _view_lines(verts, faces, corners, points, counts, tangent, analytic, toward
             for poly in bridged:
                 if len(poly) < 2:
                     continue
-                item = fit_chain(poly, style, ellipses=(fit and name == 'trimetric' and style == 'vis'))
+                item = fit_chain(poly, style, ellipses=(fit and name == 'trimetric' and style == 'vis'), curves=fit)
                 if item and _length(item) >= 1.5 * px:
                     lines.append(item)
     sil = _silhouettes(verts, faces, corners, toward)
@@ -1119,6 +1171,10 @@ def _view_lines(verts, faces, corners, points, counts, tangent, analytic, toward
         keep_len = np.linalg.norm(projected[:, 1] - projected[:, 0], axis=1) > 0.5 * px
         sil = sil[keep_len]
         projected = projected[keep_len]
+        if masks and len(sil):
+            outer = _outer_silhouettes(projected, masks)
+            sil = sil[outer]
+            projected = projected[outer]
     if len(sil):
         chains = _chain(projected, sil, 0.6 * px)
         for chain in chains:
@@ -1129,7 +1185,7 @@ def _view_lines(verts, faces, corners, points, counts, tangent, analytic, toward
             flat = np.c_[dense @ right, dense @ up]
             for run in _runs(flat, vis, np.array([len(dense)])):
                 poly = [(float(x), float(y)) for x, y in run]
-                item = fit_chain(poly, 'vis', ellipses=(fit and name == 'trimetric'))
+                item = fit_chain(poly, 'vis', ellipses=(fit and name == 'trimetric'), curves=fit)
                 if item and _length(item) >= 1.5 * px:
                     lines.append(item)
     return lines

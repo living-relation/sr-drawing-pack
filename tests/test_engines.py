@@ -44,6 +44,7 @@ def test_small_gaps_join_and_round_edges_fit():
     hexagon = [(5 * math.cos(2 * math.pi * i / 6), 5 * math.sin(2 * math.pi * i / 6)) for i in range(6)]
     hexagon.append(hexagon[0])
     assert fit_circle(hexagon, 0.05) is None
+    assert fit_chain(ring, 'vis', curves=False)['kind'] == 'poly'
     phi = 0.4
     pts = []
     for i in range(24):
