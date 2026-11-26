@@ -36,6 +36,13 @@ def _offscreen_window():
             raise RuntimeError(
                 'OSMesa was requested for the depth picture, but this VTK build has no OSMesa window.')
         win = vtk.vtkOSOpenGLRenderWindow()
+    elif sys.platform == 'win32':
+        # The plain factory can still hand back OSMesa. Ask for the graphics card.
+        if not hasattr(vtk, 'vtkWin32OpenGLRenderWindow'):
+            raise RuntimeError(
+                'this VTK build has no Windows graphics-card window. '
+                'Set SRDP_GL=osmesa only when OSMesa is installed.')
+        win = vtk.vtkWin32OpenGLRenderWindow()
     else:
         win = vtk.vtkRenderWindow()
     try:
