@@ -100,7 +100,7 @@ The PDF embeds DejaVu Sans (the same family as the filed drawings), subset to th
 
 ## Title block format
 
-The title block is a template for the sheet size, edited on its own page (`python dev/title_editor.py`, then http://127.0.0.1:8766/). That page is not the sheet editor. Drag a box to move it, set its width and height to resize it, add or remove a box, and drop in a company logo (PNG or SVG). Save keeps a file per size: A, B, C, D, and the metric sizes A4, A3, A2, A1 and A0. A sheet draws the template saved for its size. Company and project still come from the design, and stay blank when the design has neither.
+The title block is a template for the sheet size, edited on its own page (`python dev/title_editor.py`, then http://127.0.0.1:8766/). That page is not the sheet editor. Drag a box to move it, set its width and height to resize it, add or remove a box, and drop in a company logo (PNG or SVG). The PDF draws that picture, not an empty frame. Save keeps a file per size: A, B, C, D, and the metric sizes A4, A3, A2, A1 and A0. A sheet draws the template saved for its size. Company and project still come from the design, and stay blank when the design has neither.
 
 The options follow SOLIDWORKS Edit Sheet Format ([sheet formats](https://help.solidworks.com/2021/english/SolidWorks/sldworks/c_sheet_formats.htm)): move and resize the format geometry, and keep a different format for each sheet size.
 
