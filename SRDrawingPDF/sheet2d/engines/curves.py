@@ -190,6 +190,55 @@ def _rho(x, y, cx, cy, rx, ry, c, s):
     return math.hypot(u / rx, v / ry)
 
 
+def analytic_curve(origin, xdir, ydir, radius, u0, u1, right, up, style, partial=False):
+    """A circle, ellipse, or arc from the real edge, projected into the view.
+
+    origin, xdir and ydir are the circle's center and two axis directions in
+    model space. right and up are the view axes. A full circle facing the
+    viewer stays a circle. Tilted, it is an ellipse. Edge-on, it is a line.
+    A partial span is points on that true curve, not a fit through samples.
+    """
+    def dot(a, b):
+        return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+
+    cx, cy = dot(origin, right), dot(origin, up)
+    ax, ay = radius * dot(xdir, right), radius * dot(xdir, up)
+    bx, by = radius * dot(ydir, right), radius * dot(ydir, up)
+    q = ax * ax + ay * ay + bx * bx + by * by
+    area = ax * by - ay * bx
+    disc = max(0.0, q * q - 4.0 * area * area)
+    root = math.sqrt(disc)
+    rx = math.sqrt(max(0.0, (q + root) / 2.0))
+    ry = math.sqrt(max(0.0, (q - root) / 2.0))
+    if rx < 1e-6:
+        return None
+    span = abs(u1 - u0)
+    full = span >= 2.0 * math.pi - 0.25 and not partial
+    if ry < 0.08 * rx:
+        # The circle is edge-on. The long conjugate radius is the line.
+        if ax * ax + ay * ay >= bx * bx + by * by:
+            p0, p1 = (cx - ax, cy - ay), (cx + ax, cy + ay)
+        else:
+            p0, p1 = (cx - bx, cy - by), (cx + bx, cy + by)
+        return {'kind': 'poly', 'pts': [p0, p1], 'style': style, 'closed': False, 'analytic': True}
+    if full and ry > 0.92 * rx:
+        return {'kind': 'circle', 'c': (cx, cy), 'r': (rx + ry) / 2.0, 'style': style, 'analytic': True}
+    if full:
+        phi = 0.5 * math.atan2(2.0 * (ax * bx + ay * by), (ax * ax + ay * ay) - (bx * bx + by * by))
+        return {
+            'kind': 'ellipse', 'c': (cx, cy), 'rx': rx, 'ry': ry, 'rot': phi,
+            'style': style, 'analytic': True,
+        }
+    steps = max(8, int(span / (math.pi / 36.0)))
+    pts = []
+    for i in range(steps + 1):
+        t = u0 + (u1 - u0) * i / steps
+        ct, st = math.cos(t), math.sin(t)
+        pts.append((cx + ct * ax + st * bx, cy + ct * ay + st * by))
+    closed = _near(pts[0], pts[-1], 1e-6)
+    return {'kind': 'poly', 'pts': pts, 'style': style, 'closed': closed, 'analytic': True}
+
+
 def fit_chain(pts, style, ellipses=False, tol=0.05):
     """A circle, an ellipse, or a polyline. Hidden styles are not used."""
     if style in ('hid', 'hidden', 'dash'):
