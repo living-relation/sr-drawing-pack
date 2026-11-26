@@ -147,6 +147,10 @@ def page_stream(sheet, missing=None, faces=None):
         elif kind == 'tri':
             ops.append('0 g')
             ops.append(_poly(it[1], True, 'f'))
+        elif kind == 'im':
+            _, x, y, w, h, _data, _typ = it
+            ops.append('0.35 w')
+            ops.append('%.3f %.3f %.3f %.3f re S' % (x * MM, y * MM, w * MM, h * MM))
         elif kind == 'tx':
             _, x, y, text, h, ha, va, rot, bold, bg, _layer = it
             if bg and text:

@@ -79,6 +79,7 @@ class DrawingDocument(object):
         self.sizes = {}
         self.hole_tol = None
         self.suggestions = []
+        self.formats = {}
 
     def to_dict(self):
         return {
@@ -93,6 +94,7 @@ class DrawingDocument(object):
             'sizes': copy.deepcopy(self.sizes),
             'hole_tol': copy.deepcopy(self.hole_tol),
             'suggestions': copy.deepcopy(self.suggestions),
+            'formats': copy.deepcopy(self.formats),
         }
 
     @classmethod
@@ -120,6 +122,7 @@ class DrawingDocument(object):
         doc.sizes = dict(data.get('sizes') or {})
         doc.hole_tol = data.get('hole_tol') or None
         doc.suggestions = list(data.get('suggestions') or [])
+        doc.formats = dict(data.get('formats') or {})
         for sug in doc.suggestions:
             _observe(doc, sug.get('id'))
         for sheet in doc.sheets:
@@ -156,6 +159,10 @@ def size_of(doc, name):
         return doc.sizes[name]
     if name in BUILTIN_SIZES:
         return BUILTIN_SIZES[name]
+    from .formats import standard_size
+    found = standard_size(name)
+    if found:
+        return found
     raise ValueError('unknown sheet size %r' % name)
 
 

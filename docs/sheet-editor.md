@@ -96,7 +96,13 @@ A BOM region that fills continues into the next region, on the same sheet or ano
 
 `check` warns if the title rev letter does not match the newest log row, if initials look wrong, if two BOM rows share an item number, if the tolerance text needs more lines than its block holds, if a BOM region has no height, overlaps the title block or the rev table, or runs off the sheet, if BOM rows do not fit, or if a balloon points at a missing row. The PDF is still written, so a drawing can be saved in the middle of an edit. `place_bom` rejects a `max_height` of 0 or less.
 
-The PDF embeds DejaVu Sans (the same family as the filed drawings), subset to the glyphs that PDF uses (the font name carries the usual six-letter subset tag), with a ToUnicode map so the text stays searchable. Diameter (⌀), ≤, and ≥ draw as themselves. A character the font does not have is named in the export warnings. BOM text uses the handbuilt parts-list size: 2.0 mm, drawn at 7.874 pt.
+The PDF embeds DejaVu Sans (the same family as the filed drawings), subset to the glyphs that PDF uses (the font name carries the usual six-letter subset tag), with a ToUnicode map so the text stays searchable. Diameter (⌀), ≤, and ≥ draw as themselves. A character the font does not have is named in the export warnings. BOM text uses the handbuilt BOM size: 2.0 mm, drawn at 7.874 pt.
+
+## Title block format
+
+The title block is a template for the sheet size, edited on its own page (`python dev/title_editor.py`, then http://127.0.0.1:8766/). That page is not the sheet editor. Drag a box to move it, set its width and height to resize it, add or remove a box, and drop in a company logo (PNG or SVG). Save keeps a file per size: A, B, C, D, and the metric sizes A4, A3, A2, A1 and A0. A sheet draws the template saved for its size. Company and project still come from the design, and stay blank when the design has neither.
+
+The options follow SOLIDWORKS Edit Sheet Format ([sheet formats](https://help.solidworks.com/2021/english/SolidWorks/sldworks/c_sheet_formats.htm)): move and resize the format geometry, and keep a different format for each sheet size.
 
 ## View labels and scale
 
@@ -272,7 +278,7 @@ Run each step as its own short Fusion script (for example through the Fusion MCP
 
 The **SR Sheet** button does this from inside Fusion. Each step is its own event and stays under 5 seconds. Mesh chunks use a 3 second budget. When the read is finished, Fusion starts `generate_sheet.py` in another process and does not wait. That process writes `drawing.json` and `sheet.pdf` in the temp folder and opens the editor (`python dev/sheet_demo.py --drawing drawing.json`). Fusion's window is free the whole time the sheet is built.
 
-With no meshes, the sheet still has front, top, right and trimetric frames, a parts list from the component names (part number blank when the read has none), balloons on the trimetric view, and the company / project line from the design. With meshes, the same sheet gets view lines from the current builder.
+With no meshes, the sheet still has front, top, right and trimetric frames, a BOM from the component names (part number blank when the read has none), balloons on the trimetric view, and the company / project line from the design. With meshes, the same sheet gets view lines from the current builder.
 
 The drawing work runs outside Fusion:
 

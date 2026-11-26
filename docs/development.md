@@ -18,6 +18,7 @@ Load the `SRDrawingPDF` folder into Fusion as described in [Install](install.md)
 - `dev/fusion_smoke.py` — live test that runs inside Fusion.
 - `dev/render_sample.py` — writes a sample two-sheet PDF with the command API. It does not need Fusion.
 - `dev/sheet_demo.py` — a local page for the sample sheet. It does not need Fusion.
+- `dev/title_editor.py` — a separate page for the title block format (boxes, logo, one template per sheet size). It does not need Fusion.
 - `dev/time_views.py` — times front, top, right and trimetric views of a several-hundred-part assembly and writes a PNG. It does not need Fusion. The full set must finish in 120 seconds. Add `--step assembly.step` to time a real assembly exported from Fusion; that needs OCP (`pip install cadquery-ocp`) and reads it through `dev/step_mesh.py`. Keep STEP files outside this repo.
 - `SRDrawingPDF/fusion_read.py` — reads the open Fusion design in short steps (visible bodies, placements, meshes) into a folder. See [Sheet editor](sheet-editor.md#real-views-from-the-open-fusion-design).
 - `SRDrawingPDF/sheet_job.py` — one read step at a time, each under 5 seconds, no sleeping. When the read is done it starts `generate_sheet.py` in another process.
