@@ -10,6 +10,7 @@ are fitted as ellipses. A STEP file is read once and cached by its hash.
 import os
 
 from sheet2d.engines.curves import analytic_curve, bridge_gaps, fit_chain
+from vieweng.window import _draw_depth, _offscreen_window
 
 PAPER_PX = 0.02
 PAPER_DEFL = 0.02
@@ -200,21 +201,6 @@ def _pts_of(line):
         from sheet2d.engines.curves import arc_points
         return arc_points(line, 16)
     return []
-
-
-def _offscreen_window():
-    """A depth window that does not need a screen.
-
-    The pip VTK build opens an X window by default. A check machine has no
-    display, and that window crashes. OSMesa draws on the CPU instead.
-    """
-    import vtk
-    if hasattr(vtk, 'vtkOSOpenGLRenderWindow'):
-        win = vtk.vtkOSOpenGLRenderWindow()
-    else:
-        win = vtk.vtkRenderWindow()
-    win.SetOffScreenRendering(1)
-    return win
 
 
 def _buffer_size(ext_r, ext_u, res):
@@ -820,21 +806,6 @@ def _densify(points, step):
     return np.vstack([points[:1], points[index] + (points[index + 1] - points[index]) * frac])
 
 
-def _offscreen_window():
-    """A depth window that does not need a screen.
-
-    The pip VTK build opens an X window by default. A check machine has no
-    display, and that window crashes. OSMesa draws on the CPU instead.
-    """
-    import vtk
-    if hasattr(vtk, 'vtkOSOpenGLRenderWindow'):
-        win = vtk.vtkOSOpenGLRenderWindow()
-    else:
-        win = vtk.vtkRenderWindow()
-    win.SetOffScreenRendering(1)
-    return win
-
-
 class _Depth(object):
     def __init__(self, verts, faces):
         import numpy as np
@@ -898,7 +869,7 @@ class _Depth(object):
         cam.SetViewUp(*up)
         cam.SetParallelScale(scale * th / max(height, 1))
         cam.SetClippingRange(2 * self.radius, 6 * self.radius)
-        self.win.Render()
+        _draw_depth(self.win)
         zbuf = vtk.vtkFloatArray()
         self.win.GetZbufferData(0, 0, int(tw) - 1, int(th) - 1, zbuf)
         from vtk.util import numpy_support as ns

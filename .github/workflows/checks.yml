@@ -14,3 +14,12 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y libosmesa6
       - run: pip install pytest vtk cadquery-ocp
       - run: python tools/check.py
+  windows-depth-window:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pytest vtk
+      - run: python -m pytest tests/test_offscreen_window.py -q
