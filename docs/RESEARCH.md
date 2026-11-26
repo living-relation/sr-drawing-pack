@@ -720,7 +720,7 @@ Proposals from the coordinator chat for ADR-056 and ADR-057. None is decided unt
 - Editable drawing file: the editor saves its own drawing file (sheets, view positions, dimensions, notes, parts-list placement); PDF and DXF are exports of it. Reopen, edit, export again. If the model changes, views reload from the new STEP and dimensions that cannot follow are flagged.
 - Missing part numbers are caught before anything is saved, in the "Save to vault" check.
 
-Open questions (full text):
+Open questions (full text). Answered 2026-11-25: D1a, C8a, C7a, C9a, C4a, C5a, C6a, C3a, B9a, C2a, D2a, D3b (for now), D4a; see ADR-058 to ADR-063.
 
 - D2 Plan the full process before building more features: a) yes, approve one steps 1-9 lifecycle section in SPEC first (rec) · b) keep building features and plan later
 - D3 Build in four parallel streams with one agent each: a) yes (rec) · b) one stream at a time
