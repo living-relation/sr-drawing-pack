@@ -456,3 +456,28 @@ Entry format: ID, Status, Context, Decision, Rejected, Supersedes, Reopen if.
 - Rejected: asking every decision.
 - Supersedes: none; works with the question-ID rule in AGENTS.md.
 - Reopen if: none.
+
+## ADR-056: Drawings and maker files (2026-11-25, Daniel)
+- Status: Accepted
+- Context: Spark Robotic cuts DXF on CNC laser, plasma and router tables, runs .nc files (CNC machine G-code) and prints from sliced G-code files. ADR-032 left DXF open.
+- Decision:
+  - Every item we make gets a drawing by default, for reference and to check the made part against.
+  - "Maker files" are any files used to make or fabricate a part: DXF, .nc, G-code, sliced files, and so on.
+  - Not every item needs every file: the user picks the outputs for each item when generating.
+  - DXF is an output (closes ADR-032's open DXF point).
+  - Only drawings are editable. Maker files made by other software (sliced G-code, most .nc) are brought into sparkCAD paired with their item and controlled the same as drawings, because they make parts. An ID or fingerprint binds each maker file to its item and rev, so they always match and always change together.
+  - A drawing can be reopened and edited after export; the user never has to remake it from scratch (Daniel's main concern; how is open, C7).
+- Rejected: maker files kept outside the vault; every item forced to carry every file type.
+- Supersedes: the open DXF point of ADR-032.
+- Reopen if: none.
+
+## ADR-057: Assemblies link their parts in the vault (2026-11-25, Daniel)
+- Status: Accepted
+- Context: Daniel wants to find every part inside an assembly, and every assembly a part is used in.
+- Decision:
+  - The hand-over JSON carries the assembly's BOM items, so every custom part and sub-assembly we make is linked to each assembly that uses it.
+  - Every custom part and sub-assembly in an assembly, and the custom parts inside those sub-assemblies, has its own drawing and paired maker files in the vault.
+  - The vault answers two queries: "contains" (what is in this assembly) and "where used" (which assemblies use this part).
+- Rejected: links kept only on the drawing's parts list.
+- Supersedes: none; works with ADR-029 (BOM from sr-export's bom.json) and ADR-032 (the vault keeps the record).
+- Reopen if: none.
