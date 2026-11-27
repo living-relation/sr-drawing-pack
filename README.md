@@ -14,4 +14,10 @@ a STEP plus sr-export's `bom.json`, in four render modes (ADR-028, ADR-029, ADR-
 - Research and test results: [docs/RESEARCH.md](docs/RESEARCH.md)
 - External repos referenced (read-only): [docs/REFERENCES.md](docs/REFERENCES.md)
 
+## Drawing engine and Fusion add-in
+The engine and editor (joined from sr-drawing-pdf, ADR-065) live in [`SRDrawingPDF/`](SRDrawingPDF). Install by a
+junction named `SRDrawingPDF` in Fusion's AddIns folder pointing at the `SRDrawingPDF` folder of this clone; update
+with `pull.cmd`, then restart the add-in. Full steps: [docs/engine/ADDIN-README.md](docs/engine/ADDIN-README.md).
+Tests: `python -m pytest`; repo check: `python tools/check.py`.
+
 License: MIT. See [LICENSE](LICENSE).

@@ -768,3 +768,22 @@ Status of each step from Fusion model to a new rev, as of 2026-11-25. Proposals 
   - Editor: start from sr-drawing-pdf's sheet editor (ADR-020) and add view frames.
 - Four work streams in parallel, each its own branch, PR and STATE file, planned with workstation-core wizard (tests first) and run by one agent each: S1 Fusion add-in, S2 engine (sheets, drawing file, fingerprints), S3 editor, S4 vault changes in the EasyPDM fork (Daniel's go needed: sparkCAD is read-only for agents here).
 - Tools already connected: the local Autodesk Fusion MCP and Fusion Compute (live add-in tests, under the fusion-desktop lock), Autodesk Product Help and Context7 (API docs). No new connector found that helps more.
+
+## XQ speed and SR Fastener hardware (2026-11-26, Grok handoff; 2026-11-27, ADR-065)
+Work PC (RTX 5060), views front/top/right/trimetric, AOI at 1:3, RTR at 1:30; engine `total_s` in seconds.
+
+| Run | AOI Exact cold | AOI Exact cached | AOI Quick cached | RTR Exact cold | RTR Exact cached | RTR Quick cached |
+|---|---:|---:|---:|---:|---:|---:|
+| v2 | 252.8 | 228.8 | 213.1 | 66.9 | 49.0 | 37.6 |
+| v3 | 169.5 | 135.1 | 118.9 | 65.8 | 46.3 | 41.6 |
+| v4 (d7062c2, hardware shown) | 215.6 | 188.4 | 115.2 | 60.0 | 41.7 | 27.5 |
+| v5 (d7062c2, hardware hidden) | 93.7 | 61.3 | 50.6 | n/a | n/a | n/a |
+
+- Hiding 236 hardware solids cut AOI views from 143.4 s to 20.2 s; mesh + edges (~28 s) is then the largest cost.
+- Cause: XQ's `name_is_fastener` only knew words (screw, nut, washer ...), not SR Fastener codes (SBH-, SO-, NHX-, FHS-,
+  WSL-), so outline-only never ran on them and every socket edge was drawn (black blobs, slow silhouette loop).
+- SR Fastener bodies are simple solids (SBH-M3 x 8: 11 faces, 23 edges; threads are cosmetic, no helix). Some
+  non-SR screws in the AOI STEP are much denser (M4x10 phillips: 57 faces, 4 B-spline faces).
+- RTR has no fastener solids by name, so hiding hardware cannot speed it up.
+- Fix: sr-drawing-pdf PR #38 (780ea75) makes `name_is_fastener` use `meshparts.is_hardware`, with guards for ball
+  nuts, lead screws, plates, rails, connector plugs and USB inserts. Not yet timed on the AOI STEP (with hardware shown).

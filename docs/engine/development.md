@@ -5,7 +5,7 @@
 ## Clone
 
 ```
-git clone https://github.com/living-relation/sr-drawing-pdf.git
+git clone https://github.com/living-relation/sr-drawing-pack.git
 ```
 
 Load the `SRDrawingPDF` folder into Fusion as described in [Install](install.md).

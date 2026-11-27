@@ -109,3 +109,6 @@
 - 2026-11-25 (render): the STEP cache (`SRDP_CACHE`, default `~/.cache/sr-drawing-pack`) grows without limit; add a size cap or age cleanup.
 - 2026-11-25 (render): Exact Lines sheets have no centre marks (precomputed views carry no circle list) and the DXF has polylines only; write true ARC/CIRCLE entities from the fitted arcs.
 - 2026-11-25 (render): edge sampling is now the largest cost on big assemblies (23 s of CC-000's 37 s warm); BRepAdaptor per-edge overhead in Python. Next idea: sample in C++ (OCCT) or cache sampled edges with the STEP cache.
+- 2026-11-27 (Grok handoff, v4 defects): stray Exact arcs (some giant, outside the view); AOI handle bar missing in the right view (PR #37 claims fixed, verify); stray lines in the AOI right view; weak golden test (`tests/test_xq_golden.py`). Re-check all on the AOI STEP after the hardware-name fix.
+- 2026-11-27 (Grok handoff): after views are cheap, mesh + edge time (~28 s on AOI) is the next speed target if Exact cached is still over 60 s.
+- 2026-11-27 (Daniel, D9a): turn on "Automatically delete head branches" on GitHub; agent sessions cannot delete branches (proxy refuses).

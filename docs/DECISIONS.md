@@ -537,3 +537,19 @@ Entry format: ID, Status, Context, Decision, Rejected, Supersedes, Reopen if.
 - Rejected: plain A, B, C revs; admin-only approval; vault items for bought or customer parts.
 - Supersedes: the MFR and CUS kinds in ADR-058.
 - Reopen if: none. Open: D8, STEP files in the vault (EasyPDM fork SPEC).
+
+## ADR-065: One repo; sr-drawing-pdf joined here; Claude owns the engine (2026-11-27, Daniel, E1a)
+- Status: Accepted
+- Context: Rules lived in sr-drawing-pack and code in sr-drawing-pdf, and the split kept drifting. Daniel handed both repos to Claude.
+- Decision: sr-drawing-pdf is merged into this repo with its full git history (main at 780ea75): `SRDrawingPDF/`, `tests/`, `tools/`, `dev/`, `pull.cmd` at the root; its docs under `docs/engine/`; its agent rules folded into AGENTS.md and `.claude/rules/drawing-engine.md`. sr-drawing-pdf is archived, read-only. Claude owns engine and editor work (was Grok). The work-PC Fusion add-in junction is re-pointed at this repo's `SRDrawingPDF/` folder.
+- Rejected: moving these docs into sr-drawing-pdf (E1b); keeping two repos (E1c).
+- Supersedes: the "who owns what" split in ADR-020 (sr-drawing-pdf as evidence-only spike).
+- Reopen if: none.
+
+## ADR-066: 3D model viewer for vault items (2026-11-27, Daniel, E2a)
+- Status: Accepted
+- Context: Daniel wants an interactive 3D viewer for vault models: orbit like Fusion, explode, hide and show parts, no editing.
+- Decision: This repo exports a GLB (compact web 3D file) beside the STEP, keeping the part tree and names, plus one stand-alone viewer page (three.js: orbit, explode, hide/show, part tree). The vault (EasyPDM fork, ADR-063) embeds the page; it does not build its own.
+- Rejected: building it inside the EasyPDM fork (E2b); parking it (E2c).
+- Supersedes: none.
+- Reopen if: GLB export of the AOI assembly is too slow or too large to open in a browser.
