@@ -349,7 +349,7 @@ Entry format: ID, Status, Context, Decision, Rejected, Supersedes, Reopen if.
 - Decision: Test models come from Daniel's Spark hub: filament cabinet, RTR, AOI, PDM, fuse boxes and the fuel hanger (H35c). Tests and exports run in local desktop Fusion, the way engineers will use the app (H36a). "Partial" tangent edges hide the start and end segments of each tangent edge, as SOLIDWORKS "Hide ends" does (H37, from SOLIDWORKS help "Tangent Edge Display Overview"). FAST DRAFT is row 5: mesh creases plus silhouettes (H38a). The render tests include the anti-aliasing fixes: mesh made finer as the view scale grows, true arcs and circles, and supersampled PNG and thumbnail output (H40a).
 - Rejected: Fusion Compute for tests (the workstation root guide prefers it in general; this repo's use is desktop); a thin phantom-font style as "partial" (that is SOLIDWORKS "Use font").
 - Supersedes: refines ADR-040 (what "partial" draws).
-- Reopen if: engineers use the app headless, or "Hide ends" looks wrong in tests.
+- Reopen if: engineers use the app with no window, or "Hide ends" looks wrong in tests.
 
 ## ADR-043: Keep the data card draft as reference (2026-11-23, Daniel, H39)
 - Status: Accepted

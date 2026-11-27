@@ -57,7 +57,7 @@
 - 2026-11-23 (fast sheet): bom.json lacks the top assembly's own part number; sr-export change candidate.
 - 2026-11-23 (Daniel): always restate every open question in full (saved to project preferences).
 - 2026-11-23 (rules check): H7 answered by the state protocol ([RULE] -> .claude/rules/): move the style rules from research/_local/out/spike-b/GROK-DRAWING-STYLE-HELP.md into .claude/rules/drawing-style.md, reconciled with ADR-026 and ADR-033 (next PR).
-- 2026-11-23 (rules check): projects root AGENTS.md prefers Fusion Compute MCP (headless) over local Fusion; this project used local Fusion for every live test. Repeated; switch.
+- 2026-11-23 (rules check): projects root AGENTS.md prefers Fusion Compute MCP (cloud, no window) over local Fusion; this project used local Fusion for every live test. Repeated; switch.
 - 2026-11-23 (rules check): handbuilt-cad models folder takes AP242 STEP only; check which STEP schema Fusion / sr-export writes.
 - [closed 2026-11-23] H7a: drawing style now in .claude/rules/drawing-style.md (PR #23).
 - 2026-11-23 (Daniel): view palette like the SOLIDWORKS View Palette; exploded views with trail lines; auxiliary, section, detail, broken, broken-out and crop views. Methods in docs/RESEARCH.md; build in M2/M3.

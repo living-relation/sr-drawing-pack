@@ -412,7 +412,7 @@ exported, closed without saving. Scripts: `research/real-test/`. Outputs stay in
   hide lists are possible, like SolidWorks "hide components" in a view.
 - **Fusion attributes** can be stored on faces and edges and survive model edits. Tagging features in Fusion and
   writing the tags into the data file is a route to dimensions that stay attached when the model changes.
-- **Fusion Compute MCP** runs Fusion headless in the cloud (public beta, TypeScript API). It could do the
+- **Fusion Compute MCP** runs Fusion in the cloud with no window (public beta, TypeScript API). It could do the
   re-export the PDM asks for at approval (ADR-022) with no Fusion seat on the PDM side. Not tested; access and cost unknown.
 - **handbuilt-cad `tools/viewer.py`** writes a spin-around 3D viewer as one HTML file: a candidate for viewing
   models in the vault without any install. `tools/views.py` has a small z-buffer renderer.

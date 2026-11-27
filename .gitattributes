@@ -20,3 +20,4 @@
 *.stl binary
 *.3mf binary
 *.f3d binary
+*.svg binary

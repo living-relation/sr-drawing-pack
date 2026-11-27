@@ -10,3 +10,22 @@ __pycache__/
 
 # Branch checklist and per-request checklists (never committed)
 TASK.md
+
+# Drawing engine (joined from sr-drawing-pdf)
+*.egg-info/
+build/
+dist/
+.env
+venv/
+# Title-block templates saved by dev/title_editor.py. A logo file may be inside.
+/formats/
+
+# Fusion / CAD artifacts (this repo is public; keep vendor CAD out)
+*.step
+*.stp
+*.f3d
+*.sldprt
+*.iges
+*.igs
+*.x_t
+*.sat
