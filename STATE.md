@@ -18,6 +18,6 @@ Updated: 2026-11-27 -- Claude (claude.ai chat, coordinator), sr-drawing-pdf join
 ## Pointers
 - Branch_States: generated (state_manager.py branches)
 - Backlog: BACKLOG.md
-- Latest_ADR: ADR-066
+- Latest_ADR: ADR-067
 - Last_Cleanup: 2026-11-23 @ 818b35e
 - Question_Counter: E4
