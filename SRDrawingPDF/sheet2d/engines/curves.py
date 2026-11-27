@@ -164,7 +164,23 @@ def fit_circle(pts, tol):
     limit = max(tol, 0.11 * r)
     if not _sagitta_ok(ring, cx, cy, r, limit, True):
         return None
+    if not _goes_around(ring, cx, cy):
+        return None
     return {'kind': 'circle', 'c': (cx, cy), 'r': r}
+
+
+def _goes_around(ring, cx, cy, max_gap=math.radians(75.0)):
+    """True when the points go all the way around the center.
+
+    A thin loop that folds back along a short curve can sit close to a big
+    circle, but its points cover only a small part of it. That is not a circle.
+    """
+    angles = sorted(math.atan2(p[1] - cy, p[0] - cx) for p in ring)
+    if len(angles) < 3:
+        return False
+    gaps = [b - a for a, b in zip(angles, angles[1:])]
+    gaps.append(angles[0] + 2.0 * math.pi - angles[-1])
+    return max(gaps) <= max_gap
 
 
 def _sweep(a0, a1, amid):

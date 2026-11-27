@@ -33,3 +33,20 @@ def test_half_arc_edge_on_spans_its_half():
     # u from 0 to pi/2: x goes 10 -> 0.
     item = analytic_curve((0, 0, 0), (1, 0, 0), (0, 0, 1), 10.0, 0.0, math.pi / 2, RIGHT, UP, 'vis', partial=True)
     assert abs(_len(item) - 10.0) < 0.1
+
+
+def test_folded_short_curve_is_not_a_full_circle():
+    from sheet2d.engines.curves import fit_circle
+    # A thin closed loop along the top 20 degrees of a radius-37 circle, out and back.
+    r = 37.0
+    out = [(r * math.cos(math.radians(a)), r * math.sin(math.radians(a))) for a in range(80, 101)]
+    back = [(x * 0.999, y * 0.999) for x, y in reversed(out)]
+    loop = out + back + [out[0]]
+    assert fit_circle(loop, 0.05) is None
+
+
+def test_real_ring_is_still_a_circle():
+    from sheet2d.engines.curves import fit_circle
+    ring = [(5 * math.cos(2 * math.pi * k / 24), 5 * math.sin(2 * math.pi * k / 24)) for k in range(25)]
+    got = fit_circle(ring, 0.05)
+    assert got and abs(got['r'] - 5) < 0.01
