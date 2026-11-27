@@ -46,6 +46,9 @@ fails a PR that leaves a top-level `STATE-*.md`. The store path comes from
   self-contained so the AddIns junction works. `tests/`: pytest suite. `tools/check.py`: the repo check CI runs.
   `dev/`: local helpers (sheet demo, title editor, timing). `docs/engine/`: install, usage, editor docs.
 - `.claude/rules/drawing-engine.md`: how the engine must draw (read before changing `SRDrawingPDF/`).
+- `viewer/index.html`: view-only 3D model viewer for vault items (ADR-066). Opens a GLB made by
+  `python -m vieweng.glb model.step model.glb` (run in `SRDrawingPDF/`). Its hardware name rule mirrors
+  `sheet2d.meshparts.is_hardware`; change both together.
 - `.claude/rules/drawing-style.md`: how every sheet is made (read before making a drawing).
 - `docs/RESEARCH.md`: test evidence. `docs/REFERENCES.md`: read-only sources and licenses. `docs/DATA-CARD.md`: superseded by ADR-032; kept as reference for any repo that wants it (Daniel, 2026-11-23, H39; ADR-043).
 - `research/fusion-tests/`: one-off test scripts. They need the `SRDP_ROOT` environment variable (path to your clone).

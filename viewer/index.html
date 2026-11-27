@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SR Model Viewer</title>
+<!-- SR Model Viewer (ADR-066): view-only 3D viewer for vault models.
+     Open with ?src=<url of a .glb>, or drop / pick a .glb file.
+     Orbit, pan, zoom, explode, hide and show parts, part tree. No editing. -->
+<style>
+  :root { --bg:#f4f5f7; --panel:#ffffff; --ink:#1d2330; --mute:#6b7383; --line:#d9dde4; --acc:#1f6feb; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; font: 13px/1.35 system-ui, -apple-system, Segoe UI, sans-serif; color:var(--ink); background:var(--bg); }
+  #app { display:flex; height:100%; }
+  #side { width:280px; min-width:220px; background:var(--panel); border-right:1px solid var(--line); display:flex; flex-direction:column; }
+  #side header { padding:10px 12px; border-bottom:1px solid var(--line); }
+  #side h1 { font-size:14px; margin:0 0 2px; }
+  #file { color:var(--mute); font-size:12px; word-break:break-all; }
+  #tools { padding:8px 12px; border-bottom:1px solid var(--line); display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  #tools label.row { grid-column:1/-1; display:flex; align-items:center; gap:8px; }
+  #tools input[type=range] { flex:1; }
+  button { font:inherit; padding:5px 8px; border:1px solid var(--line); background:#fff; border-radius:5px; cursor:pointer; }
+  button:hover { border-color:var(--acc); }
+  button:disabled { opacity:.45; cursor:default; }
+  #tree { flex:1; overflow:auto; padding:6px 4px 12px; }
+  .node { display:flex; align-items:center; gap:4px; padding:2px 4px; border-radius:4px; white-space:nowrap; cursor:pointer; }
+  .node:hover { background:#eef2f8; }
+  .node.sel { background:#dbe8ff; }
+  .node .tw { width:14px; text-align:center; color:var(--mute); }
+  .node .nm { overflow:hidden; text-overflow:ellipsis; }
+  .node.off .nm { color:#a7adb8; text-decoration:line-through; }
+  .kids.closed { display:none; }
+  #main { flex:1; position:relative; }
+  canvas { display:block; width:100%; height:100%; touch-action:none; }
+  #views { position:absolute; top:10px; right:10px; display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end; }
+  #hint { position:absolute; left:10px; bottom:10px; color:var(--mute); font-size:12px; background:rgba(255,255,255,.8); padding:4px 8px; border-radius:5px; }
+  #drop { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:10px; color:var(--mute); }
+  #drop.hide { display:none; }
+  #err { color:#b42318; }
+  @media (max-width: 700px) {
+    #app { flex-direction:column-reverse; }
+    #side { width:100%; height:42%; border-right:0; border-top:1px solid var(--line); }
+  }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.181.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.181.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="app">
+  <aside id="side">
+    <header><h1>SR Model Viewer</h1><div id="file">No model loaded</div></header>
+    <div id="tools">
+      <label class="row">Explode <input id="explode" type="range" min="0" max="100" value="0"></label>
+      <button id="hideSel" disabled>Hide selected</button>
+      <button id="isolate" disabled>Isolate</button>
+      <button id="showAll">Show all</button>
+      <button id="fit">Fit</button>
+      <label class="row"><input id="hw" type="checkbox"> Hide hardware</label>
+      <label class="row"><input id="edges" type="checkbox" checked> Edges</label>
+      <button id="open" style="grid-column:1/-1">Open .glb…</button>
+      <input id="pick" type="file" accept=".glb,.gltf" hidden>
+    </div>
+    <div id="tree"></div>
+  </aside>
+  <main id="main">
+    <canvas id="c"></canvas>
+    <div id="views">
+      <button data-v="front">Front</button><button data-v="top">Top</button>
+      <button data-v="right">Right</button><button data-v="iso">Iso</button>
+    </div>
+    <div id="drop"><div>Drop a .glb here, or use <b>Open .glb…</b></div><div id="err"></div></div>
+    <div id="hint">Left drag: orbit · Right / middle drag: pan · Wheel: zoom · Click: select · Double-click: fit to part</div>
+  </main>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+// Same name rules as sheet2d.meshparts.is_hardware (keep the two in step).
+const HW = /(^|[\s,(])(SBH|SHCS|SCH|BHCS|FHCS|FHS|FH|SO|SOS|BSO|TBSO|CSOS|NHX|NTN|NHR|NLN|NYL|WSL|WFL|WSP|PEM)[-\s]|\b(screws?|bolts?|nuts?|washers?|standoffs?|spacers?|rivets?|dowels?|heat[- ]?set|threaded insert)\b|\b(ISO|DIN)\s?\d{3,5}\b|^M\d+(\.\d+)?\s*[xX]\s*\d+/i;
+const NOT_HW = /\b(plug|terminal|connector|conn|header|socket,|receptacle|recepticle|ball ?nuts?|ball ?screws?|lead ?screws?|plates?|housings?|brackets?|rails?)\b/i;
+const isHardware = n => !!n && HW.test(n) && !NOT_HW.test(n);
+
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setClearColor(0xf4f5f7);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 0.001, 1000);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8890a0, 1.1));
+const sun = new THREE.DirectionalLight(0xffffff, 1.4); scene.add(sun);
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.PAN };
+controls.screenSpacePanning = true;
+
+let model = null, parts = [], center = new THREE.Vector3(), size = 1, selected = null;
+const edgeMat = new THREE.LineBasicMaterial({ color: 0x1d2330, transparent: true, opacity: 0.55 });
+const selMat = new THREE.MeshStandardMaterial({ color: 0x1f6feb, emissive: 0x0a2a66, metalness: 0.1, roughness: 0.5 });
+
+function resize() {
+  const r = canvas.parentElement.getBoundingClientRect();
+  renderer.setSize(r.width, r.height, false);
+  camera.aspect = r.width / Math.max(r.height, 1); camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize);
+
+function fitTo(box, dir) {
+  const c = box.getCenter(new THREE.Vector3()), s = box.getSize(new THREE.Vector3()).length() || 1;
+  const d = dir || camera.position.clone().sub(controls.target).normalize();
+  const dist = s / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) * 1.1;
+  controls.target.copy(c); camera.position.copy(c).addScaledVector(d, dist);
+  camera.near = dist / 1000; camera.far = dist * 100; camera.updateProjectionMatrix();
+}
+function visibleBox() {
+  const b = new THREE.Box3();
+  for (const p of parts) if (p.mesh.visible) b.expandByObject(p.mesh);
+  return b.isEmpty() ? new THREE.Box3().setFromObject(model) : b;
+}
+const VIEWS = { front: [0, 0, 1], top: [0, 1, 0.0001], right: [1, 0, 0], iso: [1, 0.8, 1] };
+document.querySelectorAll('#views button').forEach(b => b.onclick = () => model && fitTo(visibleBox(), new THREE.Vector3(...VIEWS[b.dataset.v]).normalize()));
+
+const fail = e => { document.getElementById('err').textContent = 'Could not open model: ' + (e && e.message || e); };
+function load(url, label) {
+  document.getElementById('err').textContent = '';
+  new GLTFLoader().load(url, gltf => { realNames(gltf); setModel(gltf.scene, label); }, undefined, fail);
+}
+// Files are read in memory (no blob URLs), so this also works inside sandboxed pages.
+function loadBytes(buffer, label) {
+  document.getElementById('err').textContent = '';
+  new GLTFLoader().parse(buffer, '', gltf => { realNames(gltf); setModel(gltf.scene, label); }, fail);
+}
+const loadFile = f => f.arrayBuffer().then(b => loadBytes(b, f.name), fail);
+// The loader cleans names for animation use ("M3-0.5 x 8" -> "M3-05_x_8"); put the file's own names back.
+function realNames(gltf) {
+  const nodes = (gltf.parser.json.nodes || []);
+  gltf.scene.traverse(o => {
+    const a = gltf.parser.associations.get(o);
+    if (a && a.nodes !== undefined && nodes[a.nodes] && nodes[a.nodes].name) o.name = nodes[a.nodes].name;
+  });
+}
+function setModel(root, label) {
+  if (model) scene.remove(model);
+  model = root; scene.add(model); parts = []; selected = null;
+  model.updateMatrixWorld(true);
+  model.traverse(o => {
+    if (!o.isMesh) return;
+    o.material = o.material.clone(); o.userData.mat = o.material;
+    const lines = new THREE.LineSegments(new THREE.EdgesGeometry(o.geometry, 30), edgeMat);
+    lines.raycast = () => {}; o.add(lines); o.userData.edges = lines;
+    const home = o.position.clone();
+    const wc = new THREE.Box3().setFromObject(o).getCenter(new THREE.Vector3());
+    parts.push({ mesh: o, home, worldCenter: wc, name: partName(o) });
+  });
+  const box = new THREE.Box3().setFromObject(model);
+  box.getCenter(center); size = box.getSize(new THREE.Vector3()).length();
+  document.getElementById('file').textContent = label + ' · ' + parts.length + ' bodies';
+  document.getElementById('drop').classList.add('hide');
+  document.getElementById('explode').value = 0; applyExplode();
+  buildTree(); applyHardware(); fitTo(box, new THREE.Vector3(...VIEWS.iso).normalize());
+}
+function partName(o) {
+  for (let n = o; n; n = n.parent) if (n.name && !/^mesh_?\d*$/i.test(n.name)) return n.name;
+  return o.name || 'part';
+}
+
+// Explode: each body moves away from the model center, in world space.
+function applyExplode() {
+  const k = document.getElementById('explode').value / 100 * 1.2;
+  for (const p of parts) {
+    const dirW = p.worldCenter.clone().sub(center);
+    if (dirW.lengthSq() < 1e-12) dirW.set(0, 1, 0).multiplyScalar(size * 0.05);
+    const parent = p.mesh.parent;
+    const a = parent.worldToLocal(center.clone()), b = parent.worldToLocal(center.clone().add(dirW));
+    p.mesh.position.copy(p.home).addScaledVector(b.sub(a), k);
+  }
+}
+document.getElementById('explode').oninput = applyExplode;
+
+// Part tree: every named node with meshes under it. Checkbox = shown.
+const rows = new Map();
+function buildTree() {
+  const host = document.getElementById('tree'); host.innerHTML = ''; rows.clear();
+  const walk = (obj, el, depth) => {
+    const kids = obj.children.filter(c => c.isMesh || hasMesh(c));
+    const named = obj !== model && (obj.name || obj.isMesh);
+    let into = el;
+    if (named && !(obj.isMesh && obj.parent && obj.parent.children.filter(c => c.isMesh).length === 1 && obj.parent.name)) {
+      const row = document.createElement('div'); row.className = 'node';
+      row.style.paddingLeft = (4 + depth * 12) + 'px';
+      const sub = kids.filter(c => !c.isLineSegments);
+      row.innerHTML = '<span class="tw">' + (sub.length ? '▾' : '') + '</span><input type="checkbox" checked><span class="nm"></span>';
+      row.querySelector('.nm').textContent = obj.name || 'body';
+      row.title = obj.name || '';
+      el.appendChild(row);
+      const box = document.createElement('div'); box.className = 'kids'; el.appendChild(box);
+      row.querySelector('.tw').onclick = e => { e.stopPropagation(); box.classList.toggle('closed'); row.querySelector('.tw').textContent = box.classList.contains('closed') ? '▸' : '▾'; };
+      row.querySelector('input').onclick = e => { e.stopPropagation(); setShown(obj, e.target.checked); };
+      row.onclick = () => select(firstMesh(obj));
+      rows.set(obj, row); into = box; depth++;
+    }
+    for (const c of kids) if (!c.isLineSegments) walk(c, into, depth);
+  };
+  walk(model, host, 0);
+}
+const hasMesh = o => { let f = false; o.traverse(c => { if (c.isMesh) f = true; }); return f; };
+const firstMesh = o => { let m = null; o.traverse(c => { if (!m && c.isMesh) m = c; }); return m; };
+function setShown(obj, on) { obj.traverse(c => { if (c.isMesh) c.visible = on; }); syncTree(); }
+function syncTree() {
+  for (const [obj, row] of rows) {
+    let any = false; obj.traverse(c => { if (c.isMesh && c.visible) any = true; });
+    row.querySelector('input').checked = any; row.classList.toggle('off', !any);
+    row.classList.toggle('sel', !!selected && (obj === selected || isAncestor(obj, selected)) && rowFor(selected) === row);
+  }
+}
+const isAncestor = (a, b) => { for (let n = b.parent; n; n = n.parent) if (n === a) return true; return false; };
+function rowFor(mesh) { for (let n = mesh; n; n = n.parent) if (rows.has(n)) return rows.get(n); return null; }
+function applyHardware() {
+  const hide = document.getElementById('hw').checked;
+  for (const p of parts) if (isHardware(p.name)) p.mesh.visible = !hide;
+  syncTree();
+}
+document.getElementById('hw').onchange = applyHardware;
+document.getElementById('edges').onchange = e => parts.forEach(p => p.mesh.userData.edges.visible = e.target.checked);
+
+function select(mesh) {
+  if (selected) selected.material = selected.userData.mat;
+  selected = mesh && mesh !== selected ? mesh : null;
+  if (selected) selected.material = selMat;
+  document.getElementById('hideSel').disabled = document.getElementById('isolate').disabled = !selected;
+  document.getElementById('file').textContent = selected ? partName(selected) : (parts.length + ' bodies');
+  syncTree();
+}
+document.getElementById('hideSel').onclick = () => { if (selected) { const m = selected; select(null); m.visible = false; syncTree(); } };
+document.getElementById('isolate').onclick = () => { if (selected) { parts.forEach(p => p.mesh.visible = p.mesh === selected); syncTree(); fitTo(visibleBox()); } };
+document.getElementById('showAll').onclick = () => { parts.forEach(p => p.mesh.visible = true); document.getElementById('hw').checked = false; syncTree(); };
+document.getElementById('fit').onclick = () => model && fitTo(visibleBox());
+
+// Click to select (a drag is an orbit, not a click). Double-click fits to the part.
+const ray = new THREE.Raycaster(); let down = null;
+function pick(e) {
+  const r = canvas.getBoundingClientRect();
+  ray.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), camera);
+  const hit = ray.intersectObjects(parts.filter(p => p.mesh.visible).map(p => p.mesh), false)[0];
+  return hit ? hit.object : null;
+}
+canvas.addEventListener('pointerdown', e => down = [e.clientX, e.clientY, e.button]);
+canvas.addEventListener('pointerup', e => {
+  if (!down || down[2] !== 0 || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) return;
+  select(pick(e));
+});
+canvas.addEventListener('dblclick', e => { const m = pick(e); if (m) fitTo(new THREE.Box3().setFromObject(m)); });
+addEventListener('keydown', e => {
+  if (e.key === 'h' && selected) document.getElementById('hideSel').click();
+  if (e.key === 'Escape') select(null);
+  if (e.key === 'f') document.getElementById('fit').click();
+});
+
+// Open a file: picker, drag and drop, or ?src=
+const pickEl = document.getElementById('pick');
+document.getElementById('open').onclick = () => pickEl.click();
+pickEl.onchange = () => { const f = pickEl.files[0]; if (f) loadFile(f); };
+addEventListener('dragover', e => e.preventDefault());
+addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) loadFile(f); });
+const src = new URLSearchParams(location.search).get('src');
+if (src) load(src, decodeURIComponent(src.split('/').pop()));
+if (window.SR_MODEL_B64) {
+  const bin = Uint8Array.from(atob(window.SR_MODEL_B64), c => c.charCodeAt(0));
+  loadBytes(bin.buffer, window.SR_MODEL_NAME || 'model.glb');
+}
+
+resize();
+renderer.setAnimationLoop(() => {
+  controls.update();
+  sun.position.copy(camera.position).add(new THREE.Vector3(size, size, size));
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>
