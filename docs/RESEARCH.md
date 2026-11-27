@@ -787,3 +787,10 @@ Work PC (RTX 5060), views front/top/right/trimetric, AOI at 1:3, RTR at 1:30; en
 - RTR has no fastener solids by name, so hiding hardware cannot speed it up.
 - Fix: sr-drawing-pdf PR #38 (780ea75) makes `name_is_fastener` use `meshparts.is_hardware`, with guards for ball
   nuts, lead screws, plates, rails, connector plugs and USB inserts. Not yet timed on the AOI STEP (with hardware shown).
+
+### Screw outline speed fix (2026-11-27, Claude)
+- AOI from Fusion (same design, 1,087 bodies) on DansPC (RTX 3060), main at e86f839: the name fix now finds all 236
+  fastener bodies, but Exact cold was still 187 s with views 130 s.
+- Profile (234-screw test model): 75% of view time was `_fill_mask`, which tested every triangle of every screw
+  against all 4,096 grid cells, 4 times (once per view). Now each triangle tests only the cells in its own box.
+  Same mask on 300 random cases; test model views 72.8 s -> 18.4 s, hardware outline step 56 s -> 2 s.
