@@ -9,7 +9,7 @@ each license. Local clones of the third-party repos live in `research/_local/ref
 |---|---|
 | https://github.com/living-relation/handbuilt-cad | Drawing engine (`drawing/`), rev letters, drawing rules, render tools. The output style to match. |
 | https://github.com/living-relation/sr-bom | Fusion BOM add-in: component counting, part number / description / material fields |
-| https://github.com/living-relation/sr-drawing-pdf | Fusion add-in: four-view PDF |
+| https://github.com/living-relation/sr-drawing-pdf | Archived. Joined into this repo with full history (ADR-065); its code is `SRDrawingPDF/` here. |
 | https://github.com/living-relation/sr-export | Fusion add-in: STEP, F3D, STL, 3MF, IGES, SAT, DXF export |
 | https://github.com/living-relation/sr-fastener | Fusion add-in: fasteners with BOM fields |
 | https://github.com/living-relation/sr-cadlib | Agent helper library for Fusion scripting |

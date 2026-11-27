@@ -2,22 +2,22 @@
 Repo: sr-drawing-pack
 Branch: main
 Last_Verified_SHA: b4aa9fa
-Updated: 2026-11-25 -- Claude (claude.ai chat, coordinator), lifecycle status logged
+Updated: 2026-11-27 -- Claude (claude.ai chat, coordinator), sr-drawing-pdf joined here (ADR-065)
 
 ## Current Goal
-- Objective: Lifecycle plan (steps 1-9) in SPEC first, then features one stream at a time (ADR-062). Vault side lives in the EasyPDM fork (ADR-063).
+- Objective: One repo for rules and engine (ADR-065). Engine: get AOI Exact cached <= 60 s with hardware shown, then fix the v4 defects (BACKLOG 2026-11-27). Then the 3D viewer (ADR-066).
 - Spec_Ref: docs/SPEC.md#interfaces
 
 ## Active Blocker
-- Status: NONE
-- Detail: none (all answered 2026-11-25, ADR-058 to ADR-063); vault question D8 (STEP in the vault) lives in the EasyPDM fork SPEC.
+- Status: BLOCKED (timing only)
+- Detail: no agent link to the work PC (RESEARCH-SPARK-ENGR) from Claude; the AOI STEP is not on DansPC. Question E4.
 
 ## Next Single Step
-- [NEXT] Write the steps 1-9 lifecycle section in docs/SPEC.md for Daniel's approval (ADR-062, D2a); one work stream at a time until his usage resets.
+- [NEXT] Time AOI Exact cold/cached and Quick on main with hardware shown, from a scratch clone on the work PC.
 
 ## Pointers
 - Branch_States: generated (state_manager.py branches)
 - Backlog: BACKLOG.md
-- Latest_ADR: ADR-064
+- Latest_ADR: ADR-066
 - Last_Cleanup: 2026-11-23 @ 818b35e
-- Question_Counter: D8
+- Question_Counter: E4

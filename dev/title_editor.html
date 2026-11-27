@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Title block editor</title>
+<style>
+  body { margin: 0; font: 15px/1.4 "Segoe UI", sans-serif; color: #1c1c1c; background: #e7e4dc; }
+  header { display: flex; gap: 12px; align-items: center; padding: 10px 16px; background: #1c1c1c; color: #fff; }
+  header h1 { font-size: 16px; font-weight: 600; margin: 0; }
+  select, button, input { font: inherit; }
+  button, select { background: #fff; border: 1px solid #bbb; border-radius: 4px; padding: 4px 8px; }
+  main { display: flex; height: calc(100vh - 48px); }
+  #stage { flex: 1; overflow: auto; padding: 16px; }
+  #stage svg { width: 100%; height: auto; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.15); }
+  aside { width: 280px; background: #fff; border-left: 1px solid #ccc; padding: 12px 14px; overflow: auto; }
+  aside h2 { font-size: 13px; margin: 14px 0 6px; }
+  .muted { color: #666; font-size: 13px; }
+  label { display: block; margin: 6px 0; }
+  #stage [data-box] { cursor: move; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Title block editor</h1>
+  <label>Size <select id="size"></select></label>
+  <button id="save" type="button">Save template</button>
+  <button id="load" type="button">Reload saved</button>
+</header>
+<main>
+  <div id="stage"></div>
+  <aside>
+    <p class="muted">This edits the sheet format only. Drag a box to move it. Set the width and height to resize the selected box. The drawing fills the words in later. Company and project stay blank when the design has no name.</p>
+    <h2>Box</h2>
+    <label>Field <select id="field"></select></label>
+    <label>Label <input id="label" value="NOTE"></label>
+    <button id="add" type="button">Add box</button>
+    <button id="remove" type="button">Remove selected</button>
+    <label>Width mm <input id="bw" type="number" min="1" step="1" value="40"></label>
+    <label>Height mm <input id="bh" type="number" min="1" step="1" value="12"></label>
+    <button id="resize" type="button">Resize selected</button>
+    <h2>Logo</h2>
+    <input id="logo" type="file" accept="image/png,image/svg+xml,.png,.svg">
+    <p id="status" class="muted"></p>
+  </aside>
+</main>
+<script>
+var template = null;
+var selected = null;
+var drag = null;
+
+function post(command, args) {
+  return fetch('/api', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({command: command, args: args || {}})
+  }).then(function (res) { return res.json(); });
+}
+
+function selectedBox() {
+  if (!template || !selected) return null;
+  var found = template.boxes.filter(function (b) { return b.id === selected; });
+  return found[0] || null;
+}
+
+function show(next) {
+  template = next.template;
+  document.getElementById('stage').innerHTML = next.svg;
+  var svg = document.querySelector('#stage svg');
+  svg.addEventListener('pointerdown', onDown);
+  svg.addEventListener('pointermove', onMove);
+  svg.addEventListener('pointerup', onUp);
+  var box = selectedBox();
+  if (box) {
+    document.getElementById('bw').value = box.w;
+    document.getElementById('bh').value = box.h;
+  }
+  document.getElementById('status').textContent = next.note || '';
+}
+
+function point(svg, e) {
+  var pt = svg.createSVGPoint();
+  pt.x = e.clientX; pt.y = e.clientY;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
+
+function onDown(e) {
+  var box = e.target.closest('[data-box]');
+  if (!box) return;
+  selected = box.getAttribute('data-box');
+  var svg = e.currentTarget;
+  drag = {id: selected, start: point(svg, e), last: point(svg, e)};
+  box.setPointerCapture(e.pointerId);
+}
+
+function onMove(e) {
+  if (!drag) return;
+  drag.last = point(e.currentTarget, e);
+}
+
+function onUp() {
+  if (!drag) return;
+  var done = drag;
+  drag = null;
+  var box = template.boxes.filter(function (b) { return b.id === done.id; })[0];
+  var dx = done.last.x - done.start.x;
+  var dy = -(done.last.y - done.start.y);
+  if (Math.hypot(dx, dy) < 0.4) return;
+  post('move', {id: done.id, x: box.x + dx, y: box.y + dy}).then(show);
+}
+
+document.getElementById('size').addEventListener('change', function () {
+  post('size', {size: this.value}).then(show);
+});
+document.getElementById('add').addEventListener('click', function () {
+  post('add', {field: document.getElementById('field').value, label: document.getElementById('label').value}).then(show);
+});
+document.getElementById('remove').addEventListener('click', function () {
+  if (selected) post('remove', {id: selected}).then(show);
+});
+document.getElementById('resize').addEventListener('click', function () {
+  if (!selected) return;
+  post('resize', {
+    id: selected,
+    w: Number(document.getElementById('bw').value),
+    h: Number(document.getElementById('bh').value)
+  }).then(show);
+});
+document.getElementById('save').addEventListener('click', function () {
+  post('save', {}).then(show);
+});
+document.getElementById('load').addEventListener('click', function () {
+  post('load', {}).then(show);
+});
+document.getElementById('logo').addEventListener('change', function () {
+  var file = this.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function () { post('logo', {name: file.name, data: reader.result}).then(show); };
+  reader.readAsDataURL(file);
+});
+
+post('boot', {}).then(function (body) {
+  var size = document.getElementById('size');
+  body.sizes.forEach(function (name) {
+    var o = document.createElement('option');
+    o.value = name; o.textContent = name;
+    size.appendChild(o);
+  });
+  size.value = body.template.size;
+  var field = document.getElementById('field');
+  body.fields.forEach(function (name) {
+    var o = document.createElement('option');
+    o.value = name; o.textContent = name;
+    field.appendChild(o);
+  });
+  field.value = 'static';
+  show(body);
+});
+</script>
+</body>
+</html>

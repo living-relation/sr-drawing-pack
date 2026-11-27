@@ -42,6 +42,10 @@ fails a PR that leaves a top-level `STATE-*.md`. The store path comes from
 `python <workstation>/scripts/state/state_paths.py`.
 
 ## Map
+- `SRDrawingPDF/`: the Fusion add-in (sheet engine `sheet2d/`, view engines `vieweng/`, XQ = exact lines). Keep it
+  self-contained so the AddIns junction works. `tests/`: pytest suite. `tools/check.py`: the repo check CI runs.
+  `dev/`: local helpers (sheet demo, title editor, timing). `docs/engine/`: install, usage, editor docs.
+- `.claude/rules/drawing-engine.md`: how the engine must draw (read before changing `SRDrawingPDF/`).
 - `.claude/rules/drawing-style.md`: how every sheet is made (read before making a drawing).
 - `docs/RESEARCH.md`: test evidence. `docs/REFERENCES.md`: read-only sources and licenses. `docs/DATA-CARD.md`: superseded by ADR-032; kept as reference for any repo that wants it (Daniel, 2026-11-23, H39; ADR-043).
 - `research/fusion-tests/`: one-off test scripts. They need the `SRDP_ROOT` environment variable (path to your clone).
@@ -79,12 +83,19 @@ fails a PR that leaves a top-level `STATE-*.md`. The store path comes from
 
 ## Who owns what
 - This repo owns requirements, rules, decisions and the plan.
-- sr-drawing-pdf proves out the editor core (sheet engine, template, title block, BOM table, subset-font
-  PDF output). Treat its results as evidence. Do not duplicate that spike here.
+- This repo also holds the drawing engine and editor: the `SRDrawingPDF/` Fusion add-in, `tests/`, `tools/`,
+  `dev/` and `docs/engine/`, joined from sr-drawing-pdf with its full history (ADR-065).
+- Claude owns engine and editor work (Daniel, 2026-11-27); Grok no longer does. sr-drawing-pdf is archived and
+  read-only; nothing new goes there.
 
 ## Skills to load (declared, not committed)
 - workstation-core: session-start, safe-repo-preflight, state-closeout, pr-closeout, coordinator-kit.
 - handbuilt-cad: primary-source-spec-check. Verify claims against official docs and label anything unverified.
+
+## Engine checks
+- Run `python tools/check.py` before every push (on Linux with no screen: `xvfb-run -a python tools/check.py`).
+  CI (`checks.yml`) runs the same check. It scans for secrets, machine paths, vendor CAD files and banned words.
+- Engine timing runs use a scratch clone, never the clone Fusion loads the add-in from.
 
 ## Live Fusion tests
 - Never walk the Fusion cloud hub recursively. A recursive scan crashed Fusion once.
@@ -98,7 +109,10 @@ fails a PR that leaves a top-level `STATE-*.md`. The store path comes from
 - Do not start or stop the workstation workers.
 - Nothing is installed into Fusion's AddIns folder until Daniel approves an iteration. When approved,
   install by a directory junction from AddIns to the add-in folder in the clone (same as sr-bom,
-  sr-export, sr-fastener, sr-drawing-pdf).
+  sr-export, sr-fastener). For this repo the junction is named `SRDrawingPDF` and points at the `SRDrawingPDF`
+  folder in the clone, never the repo root (`docs/engine/ADDIN-README.md`). `pull.cmd` updates the clone.
+- Smoke tests close their own design without saving.
+- Never run Fusion or CAD jobs on DRG-Laptop. Work-PC jobs run under keep-awake. No part IDs in chat.
 
 ## Asking Daniel
 - Every question ID is one capital letter plus one digit, never more than 2 characters (A1 ... Z9); every choice is one lower-case letter (A1a, A1b), with a recommendation (Daniel, 2026-11-24). IDs still come from the one counter (`Question_Counter`, coordinator-kit); old H<n> IDs keep their meaning. Never ask what DECISIONS,
