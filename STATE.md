@@ -13,7 +13,7 @@ Updated: 2026-11-27 -- Claude (claude.ai chat, coordinator), AOI timing targets 
 - Detail: AOI timing runs on DansPC (AOI STEP exported via Fusion Compute into the scratch folder). Targets met (RESEARCH 2026-11-27).
 
 ## Next Single Step
-- [NEXT] Time AOI again on DansPC (more unique parts after the repeat fix), then strengthen the golden test.
+- [NEXT] Strengthen the golden test (tests/test_xq_golden.py) so stray lines and fake circles fail it.
 
 ## Pointers
 - Branch_States: generated (state_manager.py branches)

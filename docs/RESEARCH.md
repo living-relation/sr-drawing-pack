@@ -815,3 +815,5 @@ Daniel saw circles that are not in the model. Two causes, both fixed:
 - The curve fitter turned a thin outline that folds back on itself (a foot pad) into a full 74 mm circle. A fitted
   circle now needs points all the way around (largest gap <= 75 degrees).
 AOI after both: right view extent -25..93 (same as front, was -95), circles front 87 -> 68, top 111 -> 69, right 24 -> 2.
+- AOI re-time after #47 (DansPC, screws shown): Exact cold 74.7 s, cached 54.6 s, Quick 46.1 s; unique parts 280 -> 328
+  (turned copies now drawn on their own). Still inside both targets.
