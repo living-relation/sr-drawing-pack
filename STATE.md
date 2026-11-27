@@ -2,18 +2,18 @@
 Repo: sr-drawing-pack
 Branch: main
 Last_Verified_SHA: b4aa9fa
-Updated: 2026-11-27 -- Claude (claude.ai chat, coordinator), sr-drawing-pdf joined here (ADR-065)
+Updated: 2026-11-27 -- Claude (claude.ai chat, coordinator), AOI timing targets met with hardware shown
 
 ## Current Goal
-- Objective: One repo for rules and engine (ADR-065). Engine: get AOI Exact cached <= 60 s with hardware shown, then fix the v4 defects (BACKLOG 2026-11-27). Then the 3D viewer (ADR-066).
+- Objective: One repo for rules and engine (ADR-065). Engine speed targets met; now clear the v4 view defects (BACKLOG 2026-11-27). Viewer (ADR-066/067) done.
 - Spec_Ref: docs/SPEC.md#interfaces
 
 ## Active Blocker
-- Status: BLOCKED (timing only)
-- Detail: no agent link to the work PC (RESEARCH-SPARK-ENGR) from Claude; the AOI STEP is not on DansPC. Question E4.
+- Status: NONE
+- Detail: AOI timing runs on DansPC (AOI STEP exported via Fusion Compute into the scratch folder). Targets met (RESEARCH 2026-11-27).
 
 ## Next Single Step
-- [NEXT] Time AOI Exact cold/cached and Quick on main with hardware shown, from a scratch clone on the work PC.
+- [NEXT] Check the remaining v4 view defects on AOI (faint tangent circle over right-view vents, handle bar, golden test) and fix.
 
 ## Pointers
 - Branch_States: generated (state_manager.py branches)

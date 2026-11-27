@@ -319,11 +319,27 @@ def analytic_curve(origin, xdir, ydir, radius, u0, u1, right, up, style, partial
     span = abs(u1 - u0)
     full = span >= 2.0 * math.pi - 0.25 and not partial
     if ry < 0.08 * rx:
-        # The circle is edge-on. The long conjugate radius is the line.
+        # The circle is edge-on, so it draws as a line. A full circle spans the
+        # diameter. A partial arc spans only where its own points land, so a short
+        # piece of a big arc stays short.
         if ax * ax + ay * ay >= bx * bx + by * by:
-            p0, p1 = (cx - ax, cy - ay), (cx + ax, cy + ay)
+            dx, dy = ax, ay
         else:
-            p0, p1 = (cx - bx, cy - by), (cx + bx, cy + by)
+            dx, dy = bx, by
+        if span >= 2.0 * math.pi - 1e-6:
+            p0, p1 = (cx - dx, cy - dy), (cx + dx, cy + dy)
+        else:
+            length = math.hypot(dx, dy)
+            ux, uy = dx / length, dy / length
+            steps = max(8, int(span / 0.02) + 1)
+            ts = []
+            for k in range(steps + 1):
+                u = u0 + (u1 - u0) * k / steps
+                px = ax * math.cos(u) + bx * math.sin(u)
+                py = ay * math.cos(u) + by * math.sin(u)
+                ts.append(px * ux + py * uy)
+            t0, t1 = min(ts), max(ts)
+            p0, p1 = (cx + t0 * ux, cy + t0 * uy), (cx + t1 * ux, cy + t1 * uy)
         return {'kind': 'poly', 'pts': [p0, p1], 'style': style, 'closed': False, 'analytic': True}
     if full and ry > 0.92 * rx:
         return {'kind': 'circle', 'c': (cx, cy), 'r': (rx + ry) / 2.0, 'style': style, 'analytic': True}
