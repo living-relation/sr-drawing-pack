@@ -794,3 +794,15 @@ Work PC (RTX 5060), views front/top/right/trimetric, AOI at 1:3, RTR at 1:30; en
 - Profile (234-screw test model): 75% of view time was `_fill_mask`, which tested every triangle of every screw
   against all 4,096 grid cells, 4 times (once per view). Now each triangle tests only the cells in its own box.
   Same mask on 300 random cases; test model views 72.8 s -> 18.4 s, hardware outline step 56 s -> 2 s.
+
+### AOI after both fixes (2026-11-27, Claude; DansPC RTX 3060, hardware shown, main at 06a7ec0)
+| Run | total_s | read | mesh | edges | views |
+|---|---:|---:|---:|---:|---:|
+| Before #45 (Exact cold / cached / Quick) | 187.0 / 165.1 / 156.6 | 20.6 | 14.3 | 11.7 | 130.1 / 129.2 / 121.2 |
+| After #45 (Exact cold / cached / Quick) | 72.9 / 52.7 / 44.6 | 19.5 | 13.7-14.1 | 11.4-11.7 | 17.8 / 17.3 / 9.2 |
+
+- Targets met with screws shown, on a slower GPU than the work PC: Exact cached 52.7 s (<= 60), Exact cold 72.9 s (< 120).
+- Stray long lines (top view x -270..897, right view y -362..456 on a ~350 mm model): a short piece of a big arc seen
+  edge-on was drawn across the whole circle diameter. Fixed in `analytic_curve` (draws only the arc's own span).
+  View extents now match the model. Still to check: a faint tangent circle over the right-view vents; the two
+  r 37 mm circles under the right view look like real round bars seen end-on (Daniel to confirm).
