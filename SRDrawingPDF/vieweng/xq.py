@@ -847,34 +847,64 @@ def _keep_outer_silhouette(keep, flat, counts, analytic):
 
 
 def _fill_mask(tri2, n=64):
-    """Which cells the part covers. Triangles are tested together, not one Python loop each."""
+    """Which cells the part covers.
+
+    Each triangle is tested only against the cells inside its own box, all
+    triangles at once, so a screw with a thousand small triangles costs about
+    a thousand small tests instead of a thousand times every cell.
+    """
     import numpy as np
     if len(tri2) == 0:
         return None
+    tri2 = np.asarray(tri2, float)
     flat = tri2.reshape(-1, 2)
     lo = flat.min(0)
     hi = flat.max(0)
     span = float(max(hi[0] - lo[0], hi[1] - lo[1], 1e-6))
     cell = span / n
-    xs = lo[0] + (np.arange(n) + 0.5) * cell
-    ys = lo[1] + (np.arange(n) + 0.5) * cell
-    xx, yy = np.meshgrid(xs, ys)
-    pts = np.stack([xx.ravel(), yy.ravel()], axis=1)
-    covered = np.zeros(pts.shape[0], np.uint8)
-    for start in range(0, len(tri2), 64):
-        tris = np.asarray(tri2[start:start + 64], float)
-        v0 = tris[:, 2] - tris[:, 0]
-        v1 = tris[:, 1] - tris[:, 0]
-        den = v0[:, 0] * v1[:, 1] - v1[:, 0] * v0[:, 1]
-        ok = np.abs(den) >= 1e-12
-        if not ok.any():
-            continue
-        tris, v0, v1, den = tris[ok], v0[ok], v1[ok], den[ok]
-        rel = pts[None, :, :] - tris[:, None, 0, :]
-        alpha = (rel[:, :, 0] * v1[:, None, 1] - v1[:, None, 0] * rel[:, :, 1]) / den[:, None]
-        beta = (v0[:, None, 0] * rel[:, :, 1] - rel[:, :, 0] * v0[:, None, 1]) / den[:, None]
-        inside = (alpha >= -1e-6) & (beta >= -1e-6) & (alpha + beta <= 1.0 + 1e-6)
-        covered[inside.any(axis=0)] = 1
+    v0 = tri2[:, 2] - tri2[:, 0]
+    v1 = tri2[:, 1] - tri2[:, 0]
+    den = v0[:, 0] * v1[:, 1] - v1[:, 0] * v0[:, 1]
+    ok = np.abs(den) >= 1e-12
+    covered = np.zeros(n * n, np.uint8)
+    if ok.any():
+        tris, v0, v1, den = tri2[ok], v0[ok], v1[ok], den[ok]
+        # Cell centers sit at lo + (i + 0.5) * cell. Cells whose center can fall in the triangle box:
+        tlo = (tris.min(1) - lo) / cell - 0.5
+        thi = (tris.max(1) - lo) / cell - 0.5
+        ix0 = np.clip(np.ceil(tlo[:, 0] - 1e-9), 0, n - 1).astype(np.int64)
+        iy0 = np.clip(np.ceil(tlo[:, 1] - 1e-9), 0, n - 1).astype(np.int64)
+        ix1 = np.clip(np.floor(thi[:, 0] + 1e-9), 0, n - 1).astype(np.int64)
+        iy1 = np.clip(np.floor(thi[:, 1] + 1e-9), 0, n - 1).astype(np.int64)
+        w = np.maximum(ix1 - ix0 + 1, 0)
+        h = np.maximum(iy1 - iy0 + 1, 0)
+        w[ix1 < ix0] = 0
+        h[iy1 < iy0] = 0
+        size = w * h
+        for start in range(0, len(tris), 4096):
+            sl = slice(start, start + 4096)
+            sz = size[sl]
+            total = int(sz.sum())
+            if total == 0:
+                continue
+            owner = np.repeat(np.arange(len(sz)), sz)
+            first = np.repeat(np.cumsum(np.r_[0, sz[:-1]]), sz)
+            local = np.arange(total) - first
+            ww = w[sl][owner]
+            cx = ix0[sl][owner] + local % np.maximum(ww, 1)
+            cy = iy0[sl][owner] + local // np.maximum(ww, 1)
+            px = lo[0] + (cx + 0.5) * cell
+            py = lo[1] + (cy + 0.5) * cell
+            t0 = tris[sl][owner, 0]
+            rx = px - t0[:, 0]
+            ry = py - t0[:, 1]
+            a0 = v0[sl][owner]
+            a1 = v1[sl][owner]
+            d = den[sl][owner]
+            alpha = (rx * a1[:, 1] - a1[:, 0] * ry) / d
+            beta = (a0[:, 0] * ry - rx * a0[:, 1]) / d
+            inside = (alpha >= -1e-6) & (beta >= -1e-6) & (alpha + beta <= 1.0 + 1e-6)
+            covered[cy[inside] * n + cx[inside]] = 1
     grid = covered.reshape(n, n)
     return lo, cell, _fill_holes(grid)
 
