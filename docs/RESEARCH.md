@@ -806,3 +806,12 @@ Work PC (RTX 5060), views front/top/right/trimetric, AOI at 1:3, RTR at 1:30; en
   edge-on was drawn across the whole circle diameter. Fixed in `analytic_curve` (draws only the arc's own span).
   View extents now match the model. Still to check: a faint tangent circle over the right-view vents; the two
   r 37 mm circles under the right view look like real round bars seen end-on (Daniel to confirm).
+
+### Phantom circles in AOI views (2026-11-27, Claude)
+Daniel saw circles that are not in the model. Two causes, both fixed:
+- Repeated parts were matched by size and face areas only, so a copy that is turned or mirrored was drawn as a
+  moved copy of the first one (holes on the wrong end). The match now also uses where each face sits inside the
+  part. This also brought back the AOI handle bar in the right view.
+- The curve fitter turned a thin outline that folds back on itself (a foot pad) into a full 74 mm circle. A fitted
+  circle now needs points all the way around (largest gap <= 75 degrees).
+AOI after both: right view extent -25..93 (same as front, was -95), circles front 87 -> 68, top 111 -> 69, right 24 -> 2.

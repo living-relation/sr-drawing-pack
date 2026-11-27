@@ -505,7 +505,13 @@ def _shift_edges(edges, delta):
 
 
 def _repeat_key(solid):
-    """Same key for copies that differ only by where they sit."""
+    """Same key for copies that differ only by where they sit.
+
+    Each face adds its type, its area and where its center sits inside the
+    part's box. A copy that is turned or mirrored moves those centers, so it
+    gets its own key and is drawn as it really sits, never as a moved copy of
+    another turn.
+    """
     from OCP.BRepAdaptor import BRepAdaptor_Surface
     from OCP.BRepGProp import BRepGProp
     from OCP.GProp import GProp_GProps
@@ -514,15 +520,23 @@ def _repeat_key(solid):
     from OCP.TopoDS import TopoDS
     lo, hi = _bbox(solid)
     size = tuple(round(float(hi[i] - lo[i]), 3) for i in range(3))
+    mid = (lo + hi) * 0.5
     marks = []
     explorer = TopExp_Explorer(solid, TopAbs_FACE)
     while explorer.More():
         face = _cast(TopoDS, 'Face')(explorer.Current())
         props = GProp_GProps()
         BRepGProp.SurfaceProperties_s(face, props)
-        marks.append((int(BRepAdaptor_Surface(face).GetType()), round(float(props.Mass()), 2)))
+        c = props.CentreOfMass()
+        where = tuple(_snap(v) for v in (c.X() - mid[0], c.Y() - mid[1], c.Z() - mid[2]))
+        marks.append((int(BRepAdaptor_Surface(face).GetType()), round(float(props.Mass()), 2), where))
         explorer.Next()
     return (size, tuple(sorted(marks)))
+
+
+def _snap(value, grid=0.05):
+    """Round to a 0.05 mm grid, with -0.0 kept equal to 0.0."""
+    return round(round(float(value) / grid) * grid, 3) + 0.0
 
 
 def _corner_normals(faces, raw):
