@@ -125,11 +125,17 @@ function visibleBox() {
 const VIEWS = { front: [0, 0, 1], top: [0, 1, 0.0001], right: [1, 0, 0], iso: [1, 0.8, 1] };
 document.querySelectorAll('#views button').forEach(b => b.onclick = () => model && fitTo(visibleBox(), new THREE.Vector3(...VIEWS[b.dataset.v]).normalize()));
 
+const fail = e => { document.getElementById('err').textContent = 'Could not open model: ' + (e && e.message || e); };
 function load(url, label) {
   document.getElementById('err').textContent = '';
-  new GLTFLoader().load(url, gltf => { realNames(gltf); setModel(gltf.scene, label); }, undefined,
-    e => { document.getElementById('err').textContent = 'Could not open model: ' + (e.message || e); });
+  new GLTFLoader().load(url, gltf => { realNames(gltf); setModel(gltf.scene, label); }, undefined, fail);
 }
+// Files are read in memory (no blob URLs), so this also works inside sandboxed pages.
+function loadBytes(buffer, label) {
+  document.getElementById('err').textContent = '';
+  new GLTFLoader().parse(buffer, '', gltf => { realNames(gltf); setModel(gltf.scene, label); }, fail);
+}
+const loadFile = f => f.arrayBuffer().then(b => loadBytes(b, f.name), fail);
 // The loader cleans names for animation use ("M3-0.5 x 8" -> "M3-05_x_8"); put the file's own names back.
 function realNames(gltf) {
   const nodes = (gltf.parser.json.nodes || []);
@@ -258,14 +264,14 @@ addEventListener('keydown', e => {
 // Open a file: picker, drag and drop, or ?src=
 const pickEl = document.getElementById('pick');
 document.getElementById('open').onclick = () => pickEl.click();
-pickEl.onchange = () => { const f = pickEl.files[0]; if (f) load(URL.createObjectURL(f), f.name); };
+pickEl.onchange = () => { const f = pickEl.files[0]; if (f) loadFile(f); };
 addEventListener('dragover', e => e.preventDefault());
-addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) load(URL.createObjectURL(f), f.name); });
+addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) loadFile(f); });
 const src = new URLSearchParams(location.search).get('src');
 if (src) load(src, decodeURIComponent(src.split('/').pop()));
 if (window.SR_MODEL_B64) {
   const bin = Uint8Array.from(atob(window.SR_MODEL_B64), c => c.charCodeAt(0));
-  load(URL.createObjectURL(new Blob([bin], { type: 'model/gltf-binary' })), window.SR_MODEL_NAME || 'model.glb');
+  loadBytes(bin.buffer, window.SR_MODEL_NAME || 'model.glb');
 }
 
 resize();
