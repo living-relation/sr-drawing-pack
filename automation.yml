@@ -3,8 +3,30 @@
 # research/_local/ (git-ignored), never to tracked files.
 generated_patterns: ["**/*.pdf", "**/*.dxf", "**/*.png", "**/*.step", "**/*.stp"]
 ignore: ["research/_local/**"]
-handmade: ["docs/**"]
+handmade: ["docs/**", "SRDrawingPDF/resources/**"]
 automations:
+  - id: engine-checks
+    script: .github/workflows/checks.yml
+    helpers: [tools/check.py, tests/test_offscreen_window.py]
+    trigger: pr-check
+    reads: ["**"]
+    writes: []
+    committed: yes
+    auto_commit: false
+    enabled: true
+    run_cmd: python tools/check.py
+    owner: claude
+  - id: step-to-glb
+    script: SRDrawingPDF/vieweng/glb.py
+    helpers: []
+    trigger: manual
+    reads: ["*.step"]
+    writes: ["*.glb (next to the STEP, never committed)"]
+    committed: no
+    auto_commit: false
+    enabled: true
+    run_cmd: python -m vieweng.glb model.step model.glb
+    owner: claude
   - id: state-check
     script: .github/workflows/state-check.yml
     helpers: [.github/state-check.sh, .github/registry-check.py]
