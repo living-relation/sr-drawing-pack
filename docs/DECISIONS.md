@@ -553,3 +553,11 @@ Entry format: ID, Status, Context, Decision, Rejected, Supersedes, Reopen if.
 - Rejected: building it inside the EasyPDM fork (E2b); parking it (E2c).
 - Supersedes: none.
 - Reopen if: GLB export of the AOI assembly is too slow or too large to open in a browser.
+
+## ADR-067: Viewer selects, explodes and drags parts (2026-11-27, Daniel)
+- Status: Accepted
+- Context: Daniel wants users to select one or many components and explode or drag just those.
+- Decision: The model viewer (ADR-066) has multi-select (Ctrl/Shift click, tree rows, a Multi-select toggle for touch), an explode slider that acts on the selection (or the whole model when nothing is selected), and a Move mode that drags the selection in the screen plane. Moves and explodes are for looking only: they never change the GLB or STEP, and Reset positions undoes them.
+- Rejected: none.
+- Supersedes: "view-only, explode the whole model" in ADR-066.
+- Reopen if: users need saved exploded views (would need a file format for them).
